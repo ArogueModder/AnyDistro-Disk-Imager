@@ -726,24 +726,63 @@ class DiskImagerApp:
         """Initialize the application."""
         self.state = AppState()
         self.builder = Gtk.Builder()
-        self.builder.add_from_file(GLADE_FILE)
+        #self.builder.add_from_file("DiskImager.glade")
+        
+        
+            # Load Glade file
+        self.builder = Gtk.Builder()
+        glade_path = Path("DiskImager.glade").parent / GLADE_FILE
+        
+        try:
+            self.builder.add_from_file(str(glade_path))
+            self.builder.connect_signals(self)
+        except Exception as e:
+            logger.error(f"Failed to load Glade file from {glade_path}: {e}")
+            logger.error("Ensure DiskImager.glade is in the same directory as AIapp.py")
+            sys.exit(1)
+        
+        # Get the main window
+        self.window = self.builder.get_object("imageWindow")  # or whatever the main window ID is
+        if not self.window:
+            logger.error("Main window not found in Glade file")
+            sys.exit(1)
+            
+        
         self.window = self.builder.get_object("mainWindow")
         self.setup_ui()
         self.connect_signals()
 
     def setup_ui(self) -> None:
         """Setup UI components."""
-        self.disk_combo = self.builder.get_object("diskCombo")
-        self.block_size_combo = self.builder.get_object("blockSizeCombo")
-        self.image_entry = self.builder.get_object("imagePathEntry")
-        self.progress_bar = self.builder.get_object("progressBar")
-        self.status_label = self.builder.get_object("statusLabel")
+        self.disk_combo = self.builder.get_object("diskSelectCombo")
+        self.block_size_combo = self.builder.get_object("selectblocksizeCombo")
+        self.image_entry = self.builder.get_object("imageFileText")
+        self.progress_bar = self.builder.get_object("imageProgressBar")
+        self.status_label = self.builder.get_object("diskImageProgressPercentageLabel")
+        self.disable_automount_check = self.builder.get_object("toggleDisableAutomount")
 
-        # Setup block size combo
-        for bs in BLOCK_SIZES:
-            self.block_size_combo.append_text(bs)
-        self.block_size_combo.set_active(0)
+         # Verify all objects were found
+        required_objects = {
+        "diskSelectCombo": self.disk_combo,
+        "imageFileText": self.image_entry,
+        "selectblocksizeCombo": self.block_size_combo,
+        "imageProgressBar": self.progress_bar,
+        "toggleDisableAutomount": self.disable_automount_check,
+        }
 
+        for obj_id, obj in required_objects.items():
+            if obj is None:
+                logger.error(f"Required object '{obj_id}' not found in Glade file")
+
+        # Populate block size combo (if empty)
+        if self.block_size_combo and self.block_size_combo.get_model():
+            model = self.block_size_combo.get_model()
+            if len(model) == 0:
+                for bs in BLOCK_SIZES:
+                    self.block_size_combo.append_text(bs)
+                self.block_size_combo.set_active(0)
+
+       
         # Setup hash algorithm combo
         self.hash_algo_combo = self.builder.get_object("hashAlgoCombo")
         for algo in HASH_ALGORITHMS:
