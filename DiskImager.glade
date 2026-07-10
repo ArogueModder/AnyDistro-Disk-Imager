@@ -1,0 +1,1248 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Generated with glade 3.40.0 -->
+<interface>
+  <requires lib="gtk+" version="3.24"/>
+  <object class="GtkDialog" id="CloneDiskDialogBox">
+    <property name="can-focus">False</property>
+    <property name="type-hint">dialog</property>
+    <child internal-child="vbox">
+      <object class="GtkBox">
+        <property name="can-focus">False</property>
+        <property name="orientation">vertical</property>
+        <property name="spacing">2</property>
+        <child internal-child="action_area">
+          <object class="GtkButtonBox">
+            <property name="can-focus">False</property>
+            <property name="layout-style">end</property>
+            <child>
+              <object class="GtkButton" id="DialogButtonOK3">
+                <property name="label" translatable="yes">OK</property>
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="receives-default">True</property>
+                <signal name="clicked" handler="on_CloneDiskButton_clicked" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="DialogButtonCancel3">
+                <property name="label" translatable="yes">Cancel</property>
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="receives-default">True</property>
+                <signal name="clicked" handler="on_DialogButtonCancel3_clicked" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="CloneDialogMessageLabel">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="halign">center</property>
+            <property name="valign">center</property>
+            <property name="margin-top">10</property>
+            <property name="margin-bottom">10</property>
+            <property name="xpad">20</property>
+            <property name="label" translatable="yes">Warning Message for Reading Image and where it will go.
+
+
+
+
+
+
+
+</property>
+            <property name="xalign">1</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
+  <object class="GtkDialog" id="GeneralErrorWarning">
+    <property name="can-focus">False</property>
+    <property name="resizable">False</property>
+    <property name="type-hint">dialog</property>
+    <child internal-child="vbox">
+      <object class="GtkBox">
+        <property name="can-focus">False</property>
+        <property name="orientation">vertical</property>
+        <property name="spacing">2</property>
+        <child internal-child="action_area">
+          <object class="GtkButtonBox" id="buttonboxdialogGeneral">
+            <property name="can-focus">False</property>
+            <property name="layout-style">center</property>
+            <child>
+              <object class="GtkButton" id="GeneralWarningButton">
+                <property name="label" translatable="yes">OK</property>
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="receives-default">True</property>
+                <signal name="clicked" handler="on_GeneralWarningErrorClose_clicked" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="GeneralWarningLabel">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="margin-left">15</property>
+            <property name="margin-right">15</property>
+            <property name="margin-top">15</property>
+            <property name="margin-bottom">15</property>
+            <property name="label" translatable="yes">General Warning Here</property>
+            <property name="justify">center</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
+  <object class="GtkDialog" id="ReadDialogBox">
+    <property name="can-focus">False</property>
+    <property name="resizable">False</property>
+    <property name="type-hint">dialog</property>
+    <property name="gravity">static</property>
+    <child internal-child="vbox">
+      <object class="GtkBox">
+        <property name="can-focus">False</property>
+        <property name="orientation">vertical</property>
+        <child internal-child="action_area">
+          <object class="GtkButtonBox" id="buttonBoxDialog">
+            <property name="can-focus">False</property>
+            <child>
+              <object class="GtkButton" id="DialogButtonOK">
+                <property name="label" translatable="yes">OK</property>
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="receives-default">True</property>
+                <signal name="clicked" handler="prepForCleanImage" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="DialogButtonCancel">
+                <property name="label" translatable="yes">Cancel</property>
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="receives-default">True</property>
+                <signal name="clicked" handler="on_DialogButtonCancel_clicked" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">True</property>
+            <property name="fill">True</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="ReadDialogMessageLabel">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="halign">center</property>
+            <property name="valign">center</property>
+            <property name="margin-top">10</property>
+            <property name="margin-bottom">10</property>
+            <property name="xpad">20</property>
+            <property name="label" translatable="yes">Warning Message for Reading Image and where it will go.
+
+
+
+
+
+
+
+</property>
+            <property name="xalign">1</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
+  <object class="GtkDialog" id="WriteDialogBox">
+    <property name="can-focus">False</property>
+    <property name="resizable">False</property>
+    <property name="type-hint">dialog</property>
+    <property name="gravity">static</property>
+    <child internal-child="vbox">
+      <object class="GtkBox">
+        <property name="can-focus">False</property>
+        <property name="orientation">vertical</property>
+        <child internal-child="action_area">
+          <object class="GtkButtonBox" id="buttonBoxDialog2">
+            <property name="can-focus">False</property>
+            <child>
+              <object class="GtkButton" id="DialogButtonOK1">
+                <property name="label" translatable="yes">OK</property>
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="receives-default">True</property>
+                <signal name="clicked" handler="prepForCleanWrite" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="DialogButtonCancel1">
+                <property name="label" translatable="yes">Cancel</property>
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="receives-default">True</property>
+                <signal name="clicked" handler="on_DialogButtonCancel1_clicked" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="position">2</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkLabel" id="WriteDialogMessageLabel">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="halign">center</property>
+            <property name="valign">center</property>
+            <property name="margin-top">10</property>
+            <property name="margin-bottom">10</property>
+            <property name="xpad">20</property>
+            <property name="label" translatable="yes">Warning Message for Reading Image and where it will go.
+
+
+
+
+
+
+
+</property>
+            <property name="xalign">1</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
+  <object class="GtkListStore" id="liststore1">
+    <columns>
+      <!-- column-name Disk -->
+      <column type="gchararray"/>
+      <!-- column-name Filesystem -->
+      <column type="gchararray"/>
+      <!-- column-name Total -->
+      <column type="gchararray"/>
+    </columns>
+  </object>
+  <object class="GtkListStore" id="liststore2">
+    <columns>
+      <!-- column-name Blocksize -->
+      <column type="gchararray"/>
+    </columns>
+    <data>
+      <row>
+        <col id="0" translatable="yes">4M</col>
+      </row>
+      <row>
+        <col id="0" translatable="yes">1M</col>
+      </row>
+      <row>
+        <col id="0" translatable="yes">512K</col>
+      </row>
+      <row>
+        <col id="0" translatable="yes">256K</col>
+      </row>
+      <row>
+        <col id="0" translatable="yes">64K</col>
+      </row>
+      <row>
+        <col id="0" translatable="yes">1K</col>
+      </row>
+    </data>
+  </object>
+  <object class="GtkListStore" id="liststore3">
+    <columns>
+      <!-- column-name Checksum -->
+      <column type="gchararray"/>
+    </columns>
+    <data>
+      <row>
+        <col id="0" translatable="yes">MD5</col>
+      </row>
+      <row>
+        <col id="0" translatable="yes">SHA1</col>
+      </row>
+      <row>
+        <col id="0" translatable="yes">SHA256</col>
+      </row>
+      <row>
+        <col id="0" translatable="yes">SHA512</col>
+      </row>
+    </data>
+  </object>
+  <object class="GtkWindow" id="MyMainWindow">
+    <property name="can-focus">False</property>
+    <property name="resizable">False</property>
+    <child>
+      <object class="GtkNotebook">
+        <property name="visible">True</property>
+        <property name="can-focus">True</property>
+        <child>
+          <object class="GtkFixed" id="fixedframe1">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="margin-right">10</property>
+            <property name="margin-top">10</property>
+            <property name="margin-bottom">10</property>
+            <child>
+              <object class="GtkButton" id="readImageButton">
+                <property name="label" translatable="yes">Read Image</property>
+                <property name="width-request">100</property>
+                <property name="height-request">45</property>
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="receives-default">True</property>
+                <signal name="clicked" handler="on_ReadButtonClicked" swapped="no"/>
+              </object>
+              <packing>
+                <property name="x">15</property>
+                <property name="y">265</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="writeImageButton">
+                <property name="label" translatable="yes">Write Image</property>
+                <property name="width-request">100</property>
+                <property name="height-request">45</property>
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="receives-default">True</property>
+                <signal name="clicked" handler="on_WriteButtonClickedBox" swapped="no"/>
+              </object>
+              <packing>
+                <property name="x">150</property>
+                <property name="y">265</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="quitButton">
+                <property name="label" translatable="yes">Quit</property>
+                <property name="width-request">100</property>
+                <property name="height-request">45</property>
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="receives-default">True</property>
+                <signal name="clicked" handler="on_quitButton_clicked" swapped="no"/>
+              </object>
+              <packing>
+                <property name="x">285</property>
+                <property name="y">265</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="refreshDiskButton">
+                <property name="width-request">35</property>
+                <property name="height-request">35</property>
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="receives-default">True</property>
+                <signal name="clicked" handler="on_refreshDiskButton_clicked" swapped="no"/>
+                <child>
+                  <object class="GtkImage" id="refresh">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="stock">gtk-refresh</property>
+                  </object>
+                </child>
+              </object>
+              <packing>
+                <property name="x">340</property>
+                <property name="y">18</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkComboBox" id="diskSelectCombo">
+                <property name="width-request">305</property>
+                <property name="height-request">35</property>
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="model">liststore1</property>
+                <property name="row-span-column">0</property>
+                <property name="column-span-column">0</property>
+                <property name="active">0</property>
+                <property name="entry-text-column">0</property>
+                <property name="id-column">0</property>
+                <signal name="changed" handler="on_diskSelectCombo_changed" swapped="no"/>
+                <child>
+                  <object class="GtkCellRendererText" id="Select A Disk"/>
+                  <attributes>
+                    <attribute name="alignment">0</attribute>
+                    <attribute name="markup">0</attribute>
+                  </attributes>
+                </child>
+              </object>
+              <packing>
+                <property name="x">15</property>
+                <property name="y">18</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkEntry" id="imageFileText">
+                <property name="width-request">305</property>
+                <property name="height-request">35</property>
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <signal name="preedit-changed" handler="on_imageFileText_preedit_changed" swapped="no"/>
+              </object>
+              <packing>
+                <property name="x">15</property>
+                <property name="y">88</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="openSaveImageButton">
+                <property name="width-request">35</property>
+                <property name="height-request">35</property>
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="receives-default">True</property>
+                <signal name="activate" handler="on_openSaveImageButton_activate" swapped="no"/>
+                <child>
+                  <object class="GtkImage">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="stock">gtk-floppy</property>
+                  </object>
+                </child>
+              </object>
+              <packing>
+                <property name="x">340</property>
+                <property name="y">88</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkProgressBar" id="imageProgressBar">
+                <property name="width-request">370</property>
+                <property name="height-request">25</property>
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="pulse-step">0.01</property>
+                <property name="text" translatable="yes">0%</property>
+                <property name="show-text">True</property>
+              </object>
+              <packing>
+                <property name="x">15</property>
+                <property name="y">215</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="diskImageLabel1">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="label" translatable="yes">Selected Disk</property>
+              </object>
+              <packing>
+                <property name="x">15</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="diskImageDirectoryLabel">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="label" translatable="yes">Selected Image</property>
+              </object>
+              <packing>
+                <property name="x">15</property>
+                <property name="y">69</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="diskImageProgressPercentageLabel">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="label" translatable="yes"> </property>
+              </object>
+              <packing>
+                <property name="x">190</property>
+                <property name="y">245</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkFrame" id="OptionsFrame">
+                <property name="width-request">370</property>
+                <property name="height-request">60</property>
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="label-xalign">0</property>
+                <child>
+                  <object class="GtkAlignment">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="left-padding">12</property>
+                    <child>
+                      <object class="GtkFixed">
+                        <property name="height-request">52</property>
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <child>
+                          <object class="GtkCheckButton" id="toggleDisableAutomount">
+                            <property name="label" translatable="yes">Disable
+Automount</property>
+                            <property name="width-request">100</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="receives-default">False</property>
+                            <property name="draw-indicator">True</property>
+                            <signal name="toggled" handler="on_toggleDisableAutomount_toggled" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="y">10</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkComboBox" id="selectblocksizeCombo">
+                            <property name="width-request">90</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="model">liststore2</property>
+                            <property name="row-span-column">0</property>
+                            <property name="column-span-column">0</property>
+                            <property name="active">0</property>
+                            <property name="has-entry">True</property>
+                            <property name="entry-text-column">0</property>
+                            <property name="id-column">0</property>
+                            <signal name="changed" handler="on_selectblocksizeCombo_changed" swapped="no"/>
+                            <child internal-child="entry">
+                              <object class="GtkEntry" id="selectblocksizeEntry">
+                                <property name="width-request">4</property>
+                                <property name="can-focus">False</property>
+                                <property name="editable">False</property>
+                                <property name="width-chars">4</property>
+                                <property name="max-width-chars">4</property>
+                                <property name="text" translatable="yes">4M</property>
+                              </object>
+                            </child>
+                          </object>
+                          <packing>
+                            <property name="x">255</property>
+                            <property name="y">17</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel" id="blocksizeLabel">
+                            <property name="width-request">120</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="label" translatable="yes">Selected Blocksize</property>
+                          </object>
+                          <packing>
+                            <property name="x">240</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkCheckButton" id="toggleUnmountandRemount">
+                            <property name="label" translatable="yes">Unmount and
+Remount disk</property>
+                            <property name="width-request">100</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="receives-default">False</property>
+                            <property name="draw-indicator">True</property>
+                            <signal name="toggled" handler="on_toggleUnmountandRemount_toggled" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="x">115</property>
+                            <property name="y">10</property>
+                          </packing>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child type="label">
+                  <object class="GtkLabel" id="OptionsFramelabel">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="label" translatable="yes">Options</property>
+                  </object>
+                </child>
+              </object>
+              <packing>
+                <property name="x">15</property>
+                <property name="y">140</property>
+              </packing>
+            </child>
+          </object>
+        </child>
+        <child type="tab">
+          <object class="GtkLabel" id="readWriteTab">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="label" translatable="yes">Read/Write</property>
+          </object>
+          <packing>
+            <property name="tab-fill">False</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkFixed" id="fixedframe2">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="margin-right">10</property>
+            <property name="margin-top">10</property>
+            <property name="margin-bottom">10</property>
+            <child>
+              <object class="GtkFrame" id="DiskVerifyFrame">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="label-xalign">0</property>
+                <property name="shadow-type">etched-out</property>
+                <child>
+                  <object class="GtkAlignment">
+                    <property name="width-request">383</property>
+                    <property name="height-request">95</property>
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="left-padding">12</property>
+                    <child>
+                      <object class="GtkFixed">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <child>
+                          <object class="GtkComboBox" id="verifydiskcombobox">
+                            <property name="width-request">295</property>
+                            <property name="height-request">35</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <signal name="changed" handler="on_verifydiskcombobox_changed" swapped="no"/>
+                            <child>
+                              <object class="GtkCellRendererText" id="SelectDiskRenderer2"/>
+                              <attributes>
+                                <attribute name="alignment">0</attribute>
+                                <attribute name="markup">0</attribute>
+                              </attributes>
+                            </child>
+                          </object>
+                          <packing>
+                            <property name="x">5</property>
+                            <property name="y">5</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="refreshDiskButton1">
+                            <property name="width-request">35</property>
+                            <property name="height-request">35</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="receives-default">True</property>
+                            <signal name="clicked" handler="on_refreshDiskButton1_clicked" swapped="no"/>
+                            <child>
+                              <object class="GtkImage" id="refresh1">
+                                <property name="visible">True</property>
+                                <property name="can-focus">False</property>
+                                <property name="stock">gtk-refresh</property>
+                              </object>
+                            </child>
+                          </object>
+                          <packing>
+                            <property name="x">315</property>
+                            <property name="y">5</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkComboBox" id="checksumCombobox1">
+                            <property name="width-request">100</property>
+                            <property name="height-request">35</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="model">liststore3</property>
+                            <signal name="changed" handler="on_checksumCombobox1_changed" swapped="no"/>
+                            <child>
+                              <object class="GtkCellRendererText" id="SelectHashRenderer"/>
+                              <attributes>
+                                <attribute name="alignment">0</attribute>
+                                <attribute name="markup">0</attribute>
+                              </attributes>
+                            </child>
+                          </object>
+                          <packing>
+                            <property name="x">5</property>
+                            <property name="y">55</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="generateChecksumDiskButton">
+                            <property name="label" translatable="yes">Generate Hash</property>
+                            <property name="width-request">100</property>
+                            <property name="height-request">35</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="receives-default">True</property>
+                            <signal name="clicked" handler="on_generateChecksumDiskButton_clicked" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="x">245</property>
+                            <property name="y">55</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="width-request">100</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="label" translatable="yes">Select Hash Type</property>
+                          </object>
+                          <packing>
+                            <property name="x">5</property>
+                            <property name="y">40</property>
+                          </packing>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child type="label">
+                  <object class="GtkLabel" id="VerifyDiskLabel">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="label" translatable="yes">Verify Disk</property>
+                  </object>
+                </child>
+              </object>
+              <packing>
+                <property name="x">5</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkFrame" id="DiskVerifyFrame1">
+                <property name="width-request">100</property>
+                <property name="height-request">80</property>
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="label-xalign">0</property>
+                <property name="shadow-type">etched-out</property>
+                <child>
+                  <object class="GtkAlignment">
+                    <property name="width-request">383</property>
+                    <property name="height-request">95</property>
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="left-padding">12</property>
+                    <child>
+                      <object class="GtkFixed">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <child>
+                          <object class="GtkButton" id="openimageButton2">
+                            <property name="width-request">35</property>
+                            <property name="height-request">35</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="receives-default">True</property>
+                            <signal name="clicked" handler="on_openimageButton2_clicked" swapped="no"/>
+                            <child>
+                              <object class="GtkImage" id="opensaveimage2">
+                                <property name="visible">True</property>
+                                <property name="can-focus">False</property>
+                                <property name="stock">gtk-floppy</property>
+                              </object>
+                            </child>
+                          </object>
+                          <packing>
+                            <property name="x">315</property>
+                            <property name="y">5</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkComboBox" id="checksumCombobox2">
+                            <property name="width-request">100</property>
+                            <property name="height-request">35</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <signal name="changed" handler="on_checksumCombobox2_changed" swapped="no"/>
+                            <child>
+                              <object class="GtkCellRendererText" id="SelectHashRenderer1"/>
+                              <attributes>
+                                <attribute name="alignment">0</attribute>
+                                <attribute name="markup">0</attribute>
+                              </attributes>
+                            </child>
+                          </object>
+                          <packing>
+                            <property name="x">5</property>
+                            <property name="y">55</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="generateChecksumImageButton">
+                            <property name="label" translatable="yes">Generate Hash</property>
+                            <property name="width-request">100</property>
+                            <property name="height-request">35</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="receives-default">True</property>
+                            <signal name="clicked" handler="on_generateChecksumImageButton_clicked" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="x">245</property>
+                            <property name="y">55</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="width-request">100</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="label" translatable="yes">Select Hash Type</property>
+                          </object>
+                          <packing>
+                            <property name="x">5</property>
+                            <property name="y">40</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkEntry" id="imageverifyentry">
+                            <property name="width-request">294</property>
+                            <property name="height-request">35</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <signal name="preedit-changed" handler="on_imageverifyentry_preedit_changed" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="x">5</property>
+                            <property name="y">5</property>
+                          </packing>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child type="label">
+                  <object class="GtkLabel" id="VerifyDiskLabel1">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="label" translatable="yes">Verify Image</property>
+                  </object>
+                </child>
+              </object>
+              <packing>
+                <property name="x">5</property>
+                <property name="y">115</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkEntry" id="ChecksumOutputEntry">
+                <property name="width-request">385</property>
+                <property name="height-request">35</property>
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="editable">False</property>
+              </object>
+              <packing>
+                <property name="x">5</property>
+                <property name="y">270</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel">
+                <property name="width-request">100</property>
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="label" translatable="yes">Output:</property>
+              </object>
+              <packing>
+                <property name="y">255</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkProgressBar" id="verifyProgressBar">
+                <property name="width-request">385</property>
+                <property name="height-request">25</property>
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="text" translatable="yes">0%</property>
+                <property name="show-text">True</property>
+              </object>
+              <packing>
+                <property name="x">5</property>
+                <property name="y">230</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="position">1</property>
+          </packing>
+        </child>
+        <child type="tab">
+          <object class="GtkLabel" id="VerifyTab">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="label" translatable="yes">Verify</property>
+          </object>
+          <packing>
+            <property name="position">1</property>
+            <property name="tab-fill">False</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkFixed" id="fixedframe3">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="margin-right">10</property>
+            <child>
+              <object class="GtkFrame" id="DiskCloneFrame2">
+                <property name="width-request">100</property>
+                <property name="height-request">142</property>
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="label-xalign">0</property>
+                <property name="shadow-type">etched-out</property>
+                <child>
+                  <object class="GtkAlignment">
+                    <property name="width-request">372</property>
+                    <property name="height-request">95</property>
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="left-padding">12</property>
+                    <child>
+                      <object class="GtkFixed">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <child>
+                          <object class="GtkComboBox" id="clonediskcombobox1">
+                            <property name="width-request">295</property>
+                            <property name="height-request">35</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <signal name="changed" handler="on_clonediskcombobox1_changed" swapped="no"/>
+                            <child>
+                              <object class="GtkCellRendererText" id="SelectDiskRenderer1"/>
+                              <attributes>
+                                <attribute name="alignment">0</attribute>
+                                <attribute name="markup">0</attribute>
+                              </attributes>
+                            </child>
+                          </object>
+                          <packing>
+                            <property name="x">5</property>
+                            <property name="y">15</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="refreshDiskButton2">
+                            <property name="width-request">35</property>
+                            <property name="height-request">35</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="receives-default">True</property>
+                            <signal name="clicked" handler="on_refreshDiskButton2_clicked" swapped="no"/>
+                            <child>
+                              <object class="GtkImage" id="refresh2">
+                                <property name="visible">True</property>
+                                <property name="can-focus">False</property>
+                                <property name="stock">gtk-refresh</property>
+                              </object>
+                            </child>
+                          </object>
+                          <packing>
+                            <property name="x">315</property>
+                            <property name="y">45</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="width-request">100</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="label" translatable="yes">Source Disk</property>
+                          </object>
+                          <packing>
+                            <property name="x">5</property>
+                            <property name="y">-2</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkComboBox" id="clonediskcombobox2">
+                            <property name="width-request">295</property>
+                            <property name="height-request">35</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <signal name="changed" handler="on_clonediskcombobox2_changed" swapped="no"/>
+                            <child>
+                              <object class="GtkCellRendererText" id="SelectDiskRenderer3"/>
+                              <attributes>
+                                <attribute name="alignment">0</attribute>
+                                <attribute name="markup">0</attribute>
+                              </attributes>
+                            </child>
+                          </object>
+                          <packing>
+                            <property name="x">5</property>
+                            <property name="y">75</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="width-request">100</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="label" translatable="yes">Target Disk</property>
+                          </object>
+                          <packing>
+                            <property name="x">5</property>
+                            <property name="y">58</property>
+                          </packing>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child type="label">
+                  <object class="GtkLabel" id="CloneDiskLabel">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="label" translatable="yes">Clone Disk</property>
+                  </object>
+                </child>
+              </object>
+              <packing>
+                <property name="x">10</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkFrame" id="OptionsFrame1">
+                <property name="width-request">100</property>
+                <property name="height-request">80</property>
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="label-xalign">0</property>
+                <child>
+                  <object class="GtkAlignment">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="left-padding">12</property>
+                    <child>
+                      <object class="GtkFixed">
+                        <property name="height-request">32</property>
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <child>
+                          <object class="GtkCheckButton" id="toggleDisableAutomount1">
+                            <property name="label" translatable="yes">Disable
+Automount</property>
+                            <property name="width-request">100</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="receives-default">False</property>
+                            <property name="draw-indicator">True</property>
+                            <signal name="toggled" handler="on_toggleDisableAutomount1_toggled" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="y">10</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkComboBox" id="selectblocksizeCombo1">
+                            <property name="width-request">90</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="model">liststore2</property>
+                            <property name="row-span-column">0</property>
+                            <property name="column-span-column">0</property>
+                            <property name="active">0</property>
+                            <property name="has-entry">True</property>
+                            <property name="entry-text-column">0</property>
+                            <property name="id-column">0</property>
+                            <signal name="changed" handler="on_selectblocksizeCombo1_changed" swapped="no"/>
+                            <child internal-child="entry">
+                              <object class="GtkEntry">
+                                <property name="can-focus">True</property>
+                                <property name="editable">False</property>
+                                <property name="width-chars">4</property>
+                                <property name="max-width-chars">4</property>
+                                <property name="text" translatable="yes">4M</property>
+                              </object>
+                            </child>
+                          </object>
+                          <packing>
+                            <property name="x">255</property>
+                            <property name="y">17</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel" id="blocksizeLabel1">
+                            <property name="width-request">120</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="label" translatable="yes">Selected Blocksize</property>
+                          </object>
+                          <packing>
+                            <property name="x">240</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkCheckButton" id="toggleUnmountandRemount1">
+                            <property name="label" translatable="yes">Unmount and
+Remount disk</property>
+                            <property name="width-request">100</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="receives-default">False</property>
+                            <property name="draw-indicator">True</property>
+                            <signal name="toggled" handler="on_toggleUnmountandRemount1_toggled" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="x">115</property>
+                            <property name="y">10</property>
+                          </packing>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child type="label">
+                  <object class="GtkLabel" id="OptionsFramelabel1">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="label" translatable="yes">Options</property>
+                  </object>
+                </child>
+              </object>
+              <packing>
+                <property name="x">10</property>
+                <property name="y">147</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkProgressBar" id="cloneprogressbar">
+                <property name="width-request">375</property>
+                <property name="height-request">25</property>
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="show-text">True</property>
+              </object>
+              <packing>
+                <property name="x">10</property>
+                <property name="y">230</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="CloneDiskButton">
+                <property name="label" translatable="yes">Clone Disk</property>
+                <property name="width-request">100</property>
+                <property name="height-request">35</property>
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="receives-default">True</property>
+                <signal name="clicked" handler="CloneDiskDialogBoxstart" swapped="no"/>
+              </object>
+              <packing>
+                <property name="x">10</property>
+                <property name="y">280</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="QuitButton1">
+                <property name="label" translatable="yes">Quit</property>
+                <property name="width-request">100</property>
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="receives-default">True</property>
+                <signal name="clicked" handler="on_QuitButton1_clicked" swapped="no"/>
+              </object>
+              <packing>
+                <property name="x">285</property>
+                <property name="y">280</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="CloneDiskProgressLabel">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="label" translatable="yes"> </property>
+              </object>
+              <packing>
+                <property name="x">180</property>
+                <property name="y">260</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="position">2</property>
+          </packing>
+        </child>
+        <child type="tab">
+          <object class="GtkLabel" id="CloneTab">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="label" translatable="yes">Clone</property>
+          </object>
+          <packing>
+            <property name="position">2</property>
+            <property name="tab-fill">False</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface>
