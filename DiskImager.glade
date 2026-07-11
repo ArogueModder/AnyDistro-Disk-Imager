@@ -401,8 +401,8 @@
             </child>
             <child>
               <object class="GtkButton" id="refreshDiskButton">
-                <property name="width-request">35</property>
-                <property name="height-request">35</property>
+                <property name="width-request">45</property>
+                <property name="height-request">45</property>
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
@@ -417,50 +417,52 @@
               </object>
               <packing>
                 <property name="x">340</property>
-                <property name="y">18</property>
+                <property name="y">15</property>
               </packing>
             </child>
             <child>
               <object class="GtkComboBox" id="diskSelectCombo">
-    		<property name="width-request">305</property>
-    		<property name="height-request">35</property>
-    		<property name="visible">True</property>
-    		<property name="can-focus">False</property>
-    		<property name="model">liststore1</property>
-    		<property name="active">0</property>
-    		<signal name="changed" handler="on_diskSelectCombo_changed" swapped="no"/>
-    		<child>
-        		<object class="GtkCellRendererText" id="DiskCellRenderer"/>
-    		</child>
-  	      </object>
-              <packing>
-                <property name="x">15</property>
-                <property name="y">18</property>
-              </packing>
-           </child>
+                <property name="width-request">305</property>
+                <property name="height-request">45</property>
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="model">liststore1</property>
+                <property name="row-span-column">0</property>
+                <property name="column-span-column">0</property>
+                <property name="active">0</property>
+                <property name="entry-text-column">0</property>
+                <property name="id-column">0</property>
+                <signal name="changed" handler="on_diskSelectCombo_changed" swapped="no"/>
+                <child>
+                  <object class="GtkCellRendererText" id="Select A Disk"/>
+                  <attributes>
+                    <attribute name="alignment">0</attribute>
+                    <attribute name="markup">0</attribute>
+                  </attributes>
+                </child>
               </object>
               <packing>
                 <property name="x">15</property>
-                <property name="y">18</property>
+                <property name="y">15</property>
               </packing>
             </child>
             <child>
               <object class="GtkEntry" id="imageFileText">
                 <property name="width-request">305</property>
-                <property name="height-request">35</property>
+                <property name="height-request">45</property>
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <signal name="preedit-changed" handler="on_imageFileText_preedit_changed" swapped="no"/>
               </object>
               <packing>
                 <property name="x">15</property>
-                <property name="y">88</property>
+                <property name="y">85</property>
               </packing>
             </child>
             <child>
               <object class="GtkButton" id="openSaveImageButton">
-                <property name="width-request">35</property>
-                <property name="height-request">35</property>
+                <property name="width-request">45</property>
+                <property name="height-request">45</property>
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
@@ -475,7 +477,7 @@
               </object>
               <packing>
                 <property name="x">340</property>
-                <property name="y">88</property>
+                <property name="y">85</property>
               </packing>
             </child>
             <child>
@@ -674,14 +676,12 @@ Remount disk</property>
                             <property name="can-focus">False</property>
                             <signal name="changed" handler="on_verifydiskcombobox_changed" swapped="no"/>
                             <child>
-				<object class="GtkCellRendererText" id="SelectDiskRenderer2">
-				<attributes>
-				<attribute name="alignment">0</attribute>
-				<attribute name="markup">0</attribute>
-				</attributes>
-				</object>
-				</child>
-
+                              <object class="GtkCellRendererText" id="SelectDiskRenderer2"/>
+                              <attributes>
+                                <attribute name="alignment">0</attribute>
+                                <attribute name="markup">0</attribute>
+                              </attributes>
+                            </child>
                           </object>
                           <packing>
                             <property name="x">5</property>
@@ -718,13 +718,12 @@ Remount disk</property>
                             <property name="model">liststore3</property>
                             <signal name="changed" handler="on_checksumCombobox1_changed" swapped="no"/>
                             <child>
-				<object class="GtkCellRendererText" id="SelectHashRenderer">
-				<attributes>
-				<attribute name="alignment">0</attribute>
-				<attribute name="markup">0</attribute>
-				</attributes>
-				</object>
-				</child>
+                              <object class="GtkCellRendererText" id="SelectHashRenderer"/>
+                              <attributes>
+                                <attribute name="alignment">0</attribute>
+                                <attribute name="markup">0</attribute>
+                              </attributes>
+                            </child>
                           </object>
                           <packing>
                             <property name="x">5</property>
@@ -977,13 +976,12 @@ Remount disk</property>
                             <property name="can-focus">False</property>
                             <signal name="changed" handler="on_clonediskcombobox1_changed" swapped="no"/>
                             <child>
-				<object class="GtkCellRendererText" id="SelectDiskRenderer1">
-				<attributes>
-				<attribute name="alignment">0</attribute>
-				<attribute name="markup">0</attribute>
-				</attributes>
-				</object>
-				</child>
+                              <object class="GtkCellRendererText" id="SelectDiskRenderer1"/>
+                              <attributes>
+                                <attribute name="alignment">0</attribute>
+                                <attribute name="markup">0</attribute>
+                              </attributes>
+                            </child>
                           </object>
                           <packing>
                             <property name="x">5</property>
@@ -1020,7 +1018,6 @@ Remount disk</property>
                           </object>
                           <packing>
                             <property name="x">5</property>
-                            <property name="y">-2</property>
                           </packing>
                         </child>
                         <child>
@@ -1052,7 +1049,7 @@ Remount disk</property>
                           </object>
                           <packing>
                             <property name="x">5</property>
-                            <property name="y">58</property>
+                            <property name="y">60</property>
                           </packing>
                         </child>
                       </object>
