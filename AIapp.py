@@ -920,9 +920,34 @@ class DiskImagerApp:
         """Handle window close."""
         Gtk.main_quit()
 
-    def on_refresh_disks(self, widget) -> None:
-        """Handle refresh disks button."""
-        self.refresh_disks()
+    def on_refresh_disks(self, widget):
+        """Handler for refreshing disk list in read/write tab."""
+        logger.info("Refresh disks button clicked")
+        disk_combo = self.builder.get_object("diskSelectCombo")
+        if disk_combo is None:
+            logger.error("diskSelectCombo not found")
+            return
+        
+        # Get the model (ListStore) from the combo box
+        model = disk_combo.get_model()
+        if model:
+            model.clear()
+        else:
+            logger.warning("No model found for diskSelectCombo")
+            return
+        
+        # Refresh disk list
+        try:
+            disks = self.disk_manager.get_available_disks()
+            model.append(["Select Disk"])
+            for disk in disks:
+                model.append([disk])
+            disk_combo.set_active(0)
+            logger.info(f"Disk list refreshed: {len(disks)} disks found")
+        except Exception as e:
+            logger.error(f"Error refreshing disks: {e}")
+            self.show_general_warning(f"Error refreshing disk list: {e}")
+
 
     def on_browse_clicked(self, widget) -> None:
         """Handle browse for image file."""
@@ -1357,17 +1382,33 @@ class DiskImagerApp:
         )
         thread.start()
 
-    def on_refresh_disks_verify(self, widget) -> None:
-        """Refresh disk list in verify tab."""
-        verify_combo = self.builder.get_object("verifydiskcombobox")
-        if verify_combo:
-            verify_combo.remove_all()
-            disks = DiskManager.discover_disks()
+    def on_refresh_disks_verify(self, widget):
+        """Handler for refreshing disk list in verify tab."""
+        logger.info("Refresh disks button clicked (verify tab)")
+        disk_combo = self.builder.get_object("verifydiskcombobox")
+        if disk_combo is None:
+            logger.error("verifydiskcombobox not found")
+            return
+        
+        # Get the model (ListStore) from the combo box
+        model = disk_combo.get_model()
+        if model:
+            model.clear()
+        else:
+            logger.warning("No model found for verifydiskcombobox")
+            return
+        
+        # Refresh disk list
+        try:
+            disks = self.disk_manager.get_available_disks()
+            model.append(["Select Disk"])
             for disk in disks:
-                label = f"{disk.name} ({disk.size_human})"
-                verify_combo.append(disk.path, label)
-            if disks:
-                verify_combo.set_active(0)
+                model.append([disk])
+            disk_combo.set_active(0)
+            logger.info(f"Verify disk list refreshed: {len(disks)} disks found")
+        except Exception as e:
+            logger.error(f"Error refreshing disks: {e}")
+            self.show_general_warning(f"Error refreshing disk list: {e}")
 
     def on_browse_verify_image(self, widget) -> None:
         """Browse for image file in verify tab."""
@@ -1384,6 +1425,82 @@ class DiskImagerApp:
             if verify_entry:
                 verify_entry.set_text(filename)
         dialog.destroy()
+
+
+    def on_generate_checksum_disk(self, widget):
+        """Handler for generating checksum of selected disk."""
+        logger.info("Generate checksum disk button clicked")
+        if not self.app_state.verify_disk:
+            self.show_general_warning("Please select a disk")
+            return
+        # Implementation would hash the selected disk
+        pass
+
+    def on_generate_checksum_image(self, widget):
+        """Handler for generating checksum of image file."""
+        logger.info("Generate checksum image button clicked")
+        if not self.app_state.verify_image_path:
+            self.show_general_warning("Please select an image file")
+            return
+        # Implementation would hash the selected image
+        pass
+
+    def on_refresh_disks_verify(self, widget):
+        """Handler for refreshing disk list in verify tab."""
+        logger.info("Refresh disks button clicked (verify tab)")
+        # Implementation would refresh the disk list
+        pass
+
+    def on_browse_verify_image(self, widget):
+        """Handler for browsing image file in verify tab."""
+        logger.info("Browse image button clicked (verify tab)")
+        dialog = Gtk.FileChooserDialog(
+            "Select Image File",
+            self.window,
+            Gtk.FileChooserAction.OPEN,
+            ("_Cancel", Gtk.ResponseType.CANCEL, "_Open", Gtk.ResponseType.ACCEPT)
+        )
+        response = dialog.run()
+        if response == Gtk.ResponseType.ACCEPT:
+            filename = dialog.get_filename()
+            self.app_state.verify_image_path = filename
+            image_entry = self.builder.get_object("imageverifyentry")
+            if image_entry:
+                image_entry.set_text(filename)
+        dialog.destroy()
+
+    def on_verify_disk_selected(self, widget):
+        """Handler for disk selection in verify tab."""
+        active_iter = widget.get_active_iter()
+        if active_iter is not None:
+            model = widget.get_model()
+            disk_name = model[active_iter][0]
+            self.app_state.verify_disk = f"/dev/{disk_name}" if disk_name != "Select Disk" else ""
+            logger.info(f"Verify disk selected: {self.app_state.verify_disk}")
+
+    def on_hash_type_disk_changed(self, widget):
+        """Handler for hash algorithm selection (disk)."""
+        active_iter = widget.get_active_iter()
+        if active_iter is not None:
+            model = widget.get_model()
+            hash_type = model[active_iter][0]
+            self.app_state.hash_algorithm_disk = hash_type
+            logger.info(f"Hash algorithm (disk) changed to: {hash_type}")
+
+    def on_hash_type_image_changed(self, widget):
+        """Handler for hash algorithm selection (image)."""
+        active_iter = widget.get_active_iter()
+        if active_iter is not None:
+            model = widget.get_model()
+            hash_type = model[active_iter][0]
+            self.app_state.hash_algorithm_image = hash_type
+            logger.info(f"Hash algorithm (image) changed to: {hash_type}")
+
+    def on_verify_image_path_changed(self, widget):
+        """Handler for image path entry changes in verify tab."""
+        self.app_state.verify_image_path = widget.get_text()
+        logger.debug(f"Verify image path changed to: {self.app_state.verify_image_path}")
+
 
 # ===================== PAGE 3: CLONE HANDLERS =====================
 
@@ -1418,31 +1535,42 @@ class DiskImagerApp:
         """Handle Cancel button in clone dialog."""
         self.builder.get_object("CloneDiskDialogBox").hide()
 
-    def on_refresh_disks_clone(self, widget) -> None:
-        """Refresh disk list in clone tab."""
+    def on_refresh_disks_clone(self, widget):
+        """Handler for refreshing disk list in clone tab."""
+        logger.info("Refresh disks button clicked (clone tab)")
+        
+        # Refresh source disk combo
         source_combo = self.builder.get_object("clonediskcombobox1")
-        target_combo = self.builder.get_object("clonediskcombobox2")
-        
-        disks = DiskManager.discover_disks()
-        
         if source_combo:
-            source_combo.remove_all()
-            for disk in disks:
-                label = f"{disk.name} ({disk.size_human})"
-                source_combo.append(disk.path, label)
-            if disks:
-                source_combo.set_active(0)
+            model = source_combo.get_model()
+            if model:
+                model.clear()
+                try:
+                    disks = self.disk_manager.get_available_disks()
+                    model.append(["Select Disk"])
+                    for disk in disks:
+                        model.append([disk])
+                    source_combo.set_active(0)
+                except Exception as e:
+                    logger.error(f"Error refreshing source disks: {e}")
         
+        # Refresh target disk combo
+        target_combo = self.builder.get_object("clonediskcombobox2")
         if target_combo:
-            target_combo.remove_all()
-            for disk in disks:
-                label = f"{disk.name} ({disk.size_human})"
-                target_combo.append(disk.path, label)
-            if len(disks) > 1:
-                target_combo.set_active(1)
-            elif disks:
-                target_combo.set_active(0)
-
+            model = target_combo.get_model()
+            if model:
+                model.clear()
+                try:
+                    disks = self.disk_manager.get_available_disks()
+                    model.append(["Select Disk"])
+                    for disk in disks:
+                        model.append([disk])
+                    target_combo.set_active(0)
+                except Exception as e:
+                    logger.error(f"Error refreshing target disks: {e}")
+        
+        logger.info("Clone disk lists refreshed")
+        
     def on_refresh_disks(self, widget) -> None:
         """Refresh disk list in read/write tab."""
         disk_combo = self.builder.get_object("diskSelectCombo")
@@ -1490,6 +1618,100 @@ class DiskImagerApp:
         self.is_operating = False
         self._show_status("Operation stopped by user", False)
         logger.info("Operation stopped by user")
+
+    def on_clone_source_selected(self, widget):
+        """Handler for clone source disk selection."""
+        active_iter = widget.get_active_iter()
+        if active_iter is not None:
+            model = widget.get_model()
+            disk_name = model[active_iter][0]
+            self.app_state.clone_source = f"/dev/{disk_name}" if disk_name != "Select Disk" else ""
+            logger.info(f"Clone source disk selected: {self.app_state.clone_source}")
+
+    def on_clone_target_selected(self, widget):
+        """Handler for clone target disk selection."""
+        active_iter = widget.get_active_iter()
+        if active_iter is not None:
+            model = widget.get_model()
+            disk_name = model[active_iter][0]
+            self.app_state.clone_target = f"/dev/{disk_name}" if disk_name != "Select Disk" else ""
+            logger.info(f"Clone target disk selected: {self.app_state.clone_target}")
+
+    def on_clone_block_size_changed(self, widget):
+        """Handler for block size selection in clone tab."""
+        active_iter = widget.get_active_iter()
+        if active_iter is not None:
+            model = widget.get_model()
+            block_size = model[active_iter][0]
+            self.app_state.clone_block_size = block_size
+            logger.info(f"Clone block size changed to: {block_size}")
+
+    def on_clone_automount_toggled(self, widget):
+        """Handler for disable automount toggle in clone tab."""
+        self.app_state.clone_disable_automount = widget.get_active()
+        status = "disabled" if self.app_state.clone_disable_automount else "enabled"
+        logger.info(f"Clone automount {status}")
+
+    def on_clone_remount_toggled(self, widget):
+        """Handler for unmount and remount toggle in clone tab."""
+        self.app_state.clone_unmount_and_remount = widget.get_active()
+        status = "enabled" if self.app_state.clone_unmount_and_remount else "disabled"
+        logger.info(f"Clone remount {status}")
+
+    def on_refresh_disks_clone(self, widget):
+        """Handler for refreshing disk list in clone tab."""
+        logger.info("Refresh disks button clicked (clone tab)")
+        # Implementation would refresh the disk list
+        pass
+
+    def on_clone_disk_clicked(self, widget):
+        """Handler for initiating clone operation."""
+        logger.info("Clone disk button clicked")
+        if not self.app_state.clone_source or not self.app_state.clone_target:
+            self.show_general_warning("Please select both source and target disks")
+            return
+        if self.app_state.clone_source == self.app_state.clone_target:
+            self.show_general_warning("Source and target disks cannot be the same")
+            return
+        
+        # Show confirmation dialog
+        clone_dialog = self.builder.get_object("CloneDiskDialogBox")
+        clone_label = self.builder.get_object("CloneDialogMessageLabel")
+        if clone_dialog and clone_label:
+            clone_label.set_line_wrap(True)
+            clone_label.set_line_wrap_mode(Gtk.WrapMode.WORD)
+            clone_dialog.set_title("Clone Disk Confirmation")
+            clone_label.set_text(
+                f"You are about to clone disk:\n\n{self.app_state.clone_source}\n\n"
+                f"to:\n\n{self.app_state.clone_target}\n\nWould you like to proceed?"
+            )
+            clone_dialog.set_transient_for(self.window)
+            clone_dialog.set_modal(True)
+            clone_dialog.run()
+
+    def on_clone_dialog_ok(self, widget):
+        """Handler for confirming clone operation."""
+        logger.info("Clone operation confirmed")
+        clone_dialog = self.builder.get_object("CloneDiskDialogBox")
+        if clone_dialog:
+            clone_dialog.hide()
+        
+        # Perform the clone operation
+        if self.app_state.clone_disable_automount:
+            # Stop automount services
+            logger.info("Stopping automount services for clone operation")
+        
+        # Start clone thread
+        logger.info(f"Starting clone from {self.app_state.clone_source} to {self.app_state.clone_target}")
+        # Implementation would perform the actual clone
+
+    def on_clone_dialog_cancel(self, widget):
+        """Handler for cancelling clone operation."""
+        logger.info("Clone operation cancelled")
+        clone_dialog = self.builder.get_object("CloneDiskDialogBox")
+        if clone_dialog:
+            clone_dialog.hide()
+
 
 # ===================== HELPER METHODS =====================
 
