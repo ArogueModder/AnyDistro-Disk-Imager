@@ -769,39 +769,58 @@ class DiskImagerApp:
         # Operation flags
         self.is_operating = False
         self.operation_stopped = False
-        self.setup_ui()
-        # Connect all signals
-        self.connect_signals()
-
-                # Initialize diskSelectCombo with proper model and renderers
+        
+        # ===== MOVE COMBO INIT BEFORE setup_ui() =====
+        # Initialize diskSelectCombo with proper model and renderers
         disk_combo = self.builder.get_object("diskSelectCombo")
         if disk_combo:
+            logger.info("diskSelectCombo found")
             # Create ListStore for disk selection
             disk_liststore = Gtk.ListStore(str, str, str)  # name, size_fs, size_total
+            logger.info(f"Created ListStore with {disk_liststore.get_n_columns()} columns")
+            
             disk_combo.set_model(disk_liststore)
+            logger.info("Model assigned to diskSelectCombo")
+            
+            # Verify model was assigned
+            assigned_model = disk_combo.get_model()
+            logger.info(f"After assignment, diskSelectCombo.get_model() returns: {assigned_model} with {assigned_model.get_n_columns() if assigned_model else 'N/A'} columns")
             
             # Add first column (disk name)
             renderer_name = Gtk.CellRendererText()
             renderer_name.props.alignment = Pango.Alignment.LEFT
             disk_combo.pack_start(renderer_name, True)
             disk_combo.add_attribute(renderer_name, "text", 0)
+            logger.debug("Added renderer for column 0")
             
             # Add second column (filesystem size)
             renderer_size_fs = Gtk.CellRendererText()
             renderer_size_fs.props.alignment = Pango.Alignment.LEFT
             disk_combo.pack_start(renderer_size_fs, True)
             disk_combo.add_attribute(renderer_size_fs, "text", 1)
+            logger.debug("Added renderer for column 1")
             
             # Add third column (total disk size)
             renderer_size_total = Gtk.CellRendererText()
             renderer_size_total.props.alignment = Pango.Alignment.LEFT
             disk_combo.pack_start(renderer_size_total, True)
             disk_combo.add_attribute(renderer_size_total, "text", 2)
+            logger.debug("Added renderer for column 2")
             
             # Prepend "Select Disk" option
             disk_liststore.append(["Select Disk", " File System Size", "Total Disk Size"])
-                
+            logger.info("Added header row to diskSelectCombo model")
+        else:
+            logger.error("diskSelectCombo not found in Glade!")
+            
+        # NOW call setup_ui (after combo is initialized)
+        self.setup_ui()
+        
+        # Connect all signals
+        self.connect_signals()
+        
         # Load initial disk list
+        logger.info("Calling on_refresh_disks()")
         self.on_refresh_disks(None)
         
         # Set window icon if available
@@ -817,7 +836,6 @@ class DiskImagerApp:
         
         # Show window
         self.window.show_all()
-
 
     def setup_ui(self) -> None:
         """Setup UI components."""
