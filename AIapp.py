@@ -726,81 +726,88 @@ class DiskImagerApp:
         """Initialize the application."""
         self.state = AppState()
         self.builder = Gtk.Builder()
-        #self.builder.add_from_file("DiskImager.glade")
         
-        
-            # Load Glade file
-        self.builder = Gtk.Builder()
-        glade_path = Path("DiskImager.glade").parent / GLADE_FILE
-        
+        # Load Glade file
+        glade_path = Path(__file__).parent / GLADE_FILE
         try:
             self.builder.add_from_file(str(glade_path))
-            self.builder.connect_signals(self)
         except Exception as e:
             logger.error(f"Failed to load Glade file from {glade_path}: {e}")
             logger.error("Ensure DiskImager.glade is in the same directory as AIapp.py")
             sys.exit(1)
         
-        # Get the main window
-        self.window = self.builder.get_object("imageWindow")  # or whatever the main window ID is
+        # Get the main window - CORRECTED ID
+        self.window = self.builder.get_object("MyMainWindow")
         if not self.window:
-            logger.error("Main window not found in Glade file")
+            logger.error("Main window 'MyMainWindow' not found in Glade file")
             sys.exit(1)
-            
         
-        self.window = self.builder.get_object("mainWindow")
+        self.window.connect("destroy", self.on_window_destroy)
+        
         self.setup_ui()
         self.connect_signals()
 
-    def setup_ui(self) -> None:
-        """Setup UI components."""
-        self.disk_combo = self.builder.get_object("diskSelectCombo")
-        self.block_size_combo = self.builder.get_object("selectblocksizeCombo")
-        self.image_entry = self.builder.get_object("imageFileText")
-        self.progress_bar = self.builder.get_object("imageProgressBar")
-        self.status_label = self.builder.get_object("diskImageProgressPercentageLabel")
-        self.disable_automount_check = self.builder.get_object("toggleDisableAutomount")
-
-         # Verify all objects were found
-        required_objects = {
+def setup_ui(self) -> None:
+    """Setup UI components."""
+    self.disk_combo = self.builder.get_object("diskSelectCombo")
+    self.block_size_combo = self.builder.get_object("selectblocksizeCombo")
+    self.image_entry = self.builder.get_object("imageFileText")
+    self.progress_bar = self.builder.get_object("imageProgressBar")
+    self.status_label = self.builder.get_object("diskImageProgressPercentageLabel")
+    self.disable_automount_check = self.builder.get_object("toggleDisableAutomount")
+    
+    # Verify all objects were found
+    required_objects = {
         "diskSelectCombo": self.disk_combo,
         "imageFileText": self.image_entry,
         "selectblocksizeCombo": self.block_size_combo,
         "imageProgressBar": self.progress_bar,
         "toggleDisableAutomount": self.disable_automount_check,
-        }
+    }
+    
+    for obj_id, obj in required_objects.items():
+        if obj is None:
+            logger.error(f"Required object '{obj_id}' not found in Glade file")
 
-        for obj_id, obj in required_objects.items():
-            if obj is None:
-                logger.error(f"Required object '{obj_id}' not found in Glade file")
+def connect_signals(self) -> None:
+    """Manually connect signals from Glade objects to handler methods."""
+    # Get button objects from Glade
+    read_button = self.builder.get_object("readImageButton")
+    write_button = self.builder.get_object("writeImageButton")
+    quit_button = self.builder.get_object("quitButton")
+    clone_button = self.builder.get_object("cloneDiskButton")  # Adjust ID if needed
+    
+    # Connect button signals
+    if read_button:
+        read_button.connect("clicked", self.on_read_clicked)
+    if write_button:
+        write_button.connect("clicked", self.on_write_clicked)
+    if quit_button:
+        quit_button.connect("clicked", self.on_window_destroy)
+    if clone_button:
+        clone_button.connect("clicked", self.on_clone_clicked)
+    
+    # Connect dialog buttons
+    read_dialog_ok = self.builder.get_object("DialogButtonOK")
+    read_dialog_cancel = self.builder.get_object("DialogButtonCancel")
+    clone_dialog_ok = self.builder.get_object("DialogButtonOK3")
+    clone_dialog_cancel = self.builder.get_object("DialogButtonCancel3")
+    
+    if read_dialog_ok:
+        read_dialog_ok.connect("clicked", self.on_read_dialog_ok)
+    if read_dialog_cancel:
+        read_dialog_cancel.connect("clicked", self.on_dialog_cancel)
+    if clone_dialog_ok:
+        clone_dialog_ok.connect("clicked", self.on_clone_dialog_ok)
+    if clone_dialog_cancel:
+        clone_dialog_cancel.connect("clicked", self.on_dialog_cancel)
+    
+    # Connect checkbox and combo
+    if self.disable_automount_check:
+        self.disable_automount_check.connect("toggled", self.on_automount_toggled)
+    if self.block_size_combo:
+        self.block_size_combo.connect("changed", self.on_block_size_changed)
 
-        # Populate block size combo (if empty)
-        if self.block_size_combo and self.block_size_combo.get_model():
-            model = self.block_size_combo.get_model()
-            if len(model) == 0:
-                for bs in BLOCK_SIZES:
-                    self.block_size_combo.append_text(bs)
-                self.block_size_combo.set_active(0)
-
-       
-        # Setup hash algorithm combo
-        self.hash_algo_combo = self.builder.get_object("hashAlgoCombo")
-        for algo in HASH_ALGORITHMS:
-            self.hash_algo_combo.append_text(algo)
-        self.hash_algo_combo.set_active(2)  # SHA256 by default
-
-    def connect_signals(self) -> None:
-        """Connect GTK signals to handlers."""
-        self.builder.connect_signals({
-            "on_window_destroy": self.on_window_destroy,
-            "on_refresh_disks": self.on_refresh_disks,
-            "on_read_button_clicked": self.on_read_clicked,
-            "on_write_button_clicked": self.on_write_clicked,
-            "on_clone_button_clicked": self.on_clone_clicked,
-            "on_verify_button_clicked": self.on_verify_clicked,
-            "on_stop_button_clicked": self.on_stop_clicked,
-            "on_browse_button_clicked": self.on_browse_clicked,
-        })
 
     def refresh_disks(self) -> None:
         """Refresh list of available disks."""
@@ -1050,6 +1057,34 @@ class DiskImagerApp:
         """Run the application."""
         self.window.show_all()
         Gtk.main()
+    
+        # Dialog and checkbox handlers
+    def on_read_dialog_ok(self, widget) -> None:
+        """Handle read dialog OK."""
+        self.on_read_clicked(widget)
+
+    def on_clone_dialog_ok(self, widget) -> None:
+        """Handle clone dialog OK."""
+        self.on_clone_clicked(widget)
+
+    def on_dialog_cancel(self, widget) -> None:
+        """Handle dialog cancel."""
+        logger.info("Operation cancelled by user")
+
+    def on_automount_toggled(self, widget) -> None:
+        """Handle automount checkbox toggle."""
+        self.state.disable_automount = widget.get_active()
+        logger.debug(f"Automount disabled: {self.state.disable_automount}")
+
+    def on_block_size_changed(self, widget) -> None:
+        """Handle block size combo change."""
+        self.state.block_size = widget.get_active_text()
+        logger.debug(f"Block size changed to: {self.state.block_size}")
+
+    def on_window_destroy(self, widget) -> None:
+        """Handle window close."""
+        Gtk.main_quit()
+
 
 
 # ============================================================================
