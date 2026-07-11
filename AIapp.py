@@ -946,7 +946,7 @@ class DiskImagerApp:
             logger.info(f"Disk list refreshed: {len(disks)} disks found")
         except Exception as e:
             logger.error(f"Error refreshing disks: {e}")
-            self.show_general_warning(f"Error refreshing disk list: {e}")
+            self.on_generalWarningError(f"Error refreshing disk list: {e}")
 
 
     def on_browse_clicked(self, widget) -> None:
@@ -1400,15 +1400,15 @@ class DiskImagerApp:
         
         # Refresh disk list
         try:
-            disks = self.disk_manager.get_available_disks()
+            disks = self.disk_manager.discover_disks()  # Fixed: discover_disks
             model.append(["Select Disk"])
             for disk in disks:
-                model.append([disk])
+                model.append([disk.name])  # Fixed: append disk.name
             disk_combo.set_active(0)
             logger.info(f"Verify disk list refreshed: {len(disks)} disks found")
         except Exception as e:
             logger.error(f"Error refreshing disks: {e}")
-            self.show_general_warning(f"Error refreshing disk list: {e}")
+            self.on_generalWarningError(f"Error refreshing disk list: {e}")
 
     def on_browse_verify_image(self, widget) -> None:
         """Browse for image file in verify tab."""
@@ -1431,7 +1431,7 @@ class DiskImagerApp:
         """Handler for generating checksum of selected disk."""
         logger.info("Generate checksum disk button clicked")
         if not self.app_state.verify_disk:
-            self.show_general_warning("Please select a disk")
+            self.on_generalWarningError("Please select a disk")
             return
         # Implementation would hash the selected disk
         pass
@@ -1440,7 +1440,7 @@ class DiskImagerApp:
         """Handler for generating checksum of image file."""
         logger.info("Generate checksum image button clicked")
         if not self.app_state.verify_image_path:
-            self.show_general_warning("Please select an image file")
+            self.on_generalWarningError("Please select an image file")
             return
         # Implementation would hash the selected image
         pass
@@ -1546,10 +1546,10 @@ class DiskImagerApp:
             if model:
                 model.clear()
                 try:
-                    disks = self.disk_manager.get_available_disks()
+                    disks = self.disk_manager.discover_disks()  # Fixed: discover_disks
                     model.append(["Select Disk"])
                     for disk in disks:
-                        model.append([disk])
+                        model.append([disk.name])  # Fixed: append disk.name
                     source_combo.set_active(0)
                 except Exception as e:
                     logger.error(f"Error refreshing source disks: {e}")
@@ -1561,43 +1561,59 @@ class DiskImagerApp:
             if model:
                 model.clear()
                 try:
-                    disks = self.disk_manager.get_available_disks()
+                    disks = self.disk_manager.discover_disks()  # Fixed: discover_disks
                     model.append(["Select Disk"])
                     for disk in disks:
-                        model.append([disk])
+                        model.append([disk.name])  # Fixed: append disk.name
                     target_combo.set_active(0)
                 except Exception as e:
                     logger.error(f"Error refreshing target disks: {e}")
         
         logger.info("Clone disk lists refreshed")
-        
-    def on_refresh_disks(self, widget) -> None:
-        """Refresh disk list in read/write tab."""
-        disk_combo = self.builder.get_object("diskSelectCombo")
-        if disk_combo:
-            disk_combo.remove_all()
-            disks = DiskManager.discover_disks()
-            for disk in disks:
-                label = f"{disk.name} ({disk.size_human})"
-                disk_combo.append(disk.path, label)
-            if disks:
-                disk_combo.set_active(0)
 
-    def on_browse_clicked(self, widget) -> None:
-        """Handle browse button for image file selection."""
-        dialog = Gtk.FileChooserDialog(
-            "Select Image File",
-            self.window,
-            Gtk.FileChooserAction.SAVE,
-            ("Cancel", Gtk.ResponseType.CANCEL, "Save", Gtk.ResponseType.ACCEPT)
-        )
-        response = dialog.run()
-        if response == Gtk.ResponseType.ACCEPT:
-            filename = dialog.get_filename()
-            image_entry = self.builder.get_object("imageFileText")
-            if image_entry:
-                image_entry.set_text(filename)
-        dialog.destroy()
+
+    def on_refresh_disks(self, widget):
+        """Handler for refreshing disk list in read/write tab."""
+        logger.info("Refresh disks button clicked")
+        disk_combo = self.builder.get_object("diskSelectCombo")
+        if disk_combo is None:
+            logger.error("diskSelectCombo not found")
+            return
+        
+        # Get the model (ListStore) from the combo box
+        model = disk_combo.get_model()
+        if model:
+            model.clear()
+        else:
+            logger.warning("No model found for diskSelectCombo")
+            return
+        
+        # Refresh disk list
+        try:
+            disks = self.disk_manager.discover_disks()  # Fixed: discover_disks, not get_available_disks
+            model.append(["Select Disk"])
+            for disk in disks:
+                model.append([disk.name])  # Fixed: append disk.name, not disk object
+            disk_combo.set_active(0)
+            logger.info(f"Disk list refreshed: {len(disks)} disks found")
+        except Exception as e:
+            logger.error(f"Error refreshing disks: {e}")
+            self.on_generalWarningError(f"Error refreshing disk list: {e}")
+        def on_browse_clicked(self, widget) -> None:
+            """Handle browse button for image file selection."""
+            dialog = Gtk.FileChooserDialog(
+                "Select Image File",
+                self.window,
+                Gtk.FileChooserAction.SAVE,
+                ("Cancel", Gtk.ResponseType.CANCEL, "Save", Gtk.ResponseType.ACCEPT)
+            )
+            response = dialog.run()
+            if response == Gtk.ResponseType.ACCEPT:
+                filename = dialog.get_filename()
+                image_entry = self.builder.get_object("imageFileText")
+                if image_entry:
+                    image_entry.set_text(filename)
+            dialog.destroy()
 
     def on_window_destroy(self, widget) -> None:
         """Handle window close/quit button."""
@@ -1668,10 +1684,10 @@ class DiskImagerApp:
         """Handler for initiating clone operation."""
         logger.info("Clone disk button clicked")
         if not self.app_state.clone_source or not self.app_state.clone_target:
-            self.show_general_warning("Please select both source and target disks")
+            self.on_generalWarningError("Please select both source and target disks")
             return
         if self.app_state.clone_source == self.app_state.clone_target:
-            self.show_general_warning("Source and target disks cannot be the same")
+            self.on_generalWarningError("Source and target disks cannot be the same")
             return
         
         # Show confirmation dialog
@@ -2007,6 +2023,30 @@ class DiskImagerApp:
         dialog.run()
         dialog.destroy()
         logger.error(f"Error: {message}")
+
+    def on_generalWarningError(self, warnError):
+        """Display a general warning/error dialog."""
+        general_dialog = self.builder.get_object("GeneralErrorWarning")
+        general_label = self.builder.get_object("GeneralWarningLabel")
+        
+        if general_dialog and general_label:
+            general_label.set_line_wrap(True)
+            general_label.set_line_wrap_mode(Gtk.WrapMode.WORD)
+            general_dialog.set_title("Warning")
+            general_label.set_text(str(warnError))
+            general_dialog.set_transient_for(self.window)
+            general_dialog.set_modal(True)
+            general_dialog.run()
+        else:
+            logger.error(f"Warning dialog not found. Error message: {warnError}")
+
+    def on_general_warning_close(self, widget):
+        """Close the general warning dialog."""
+        general_dialog = self.builder.get_object("GeneralErrorWarning")
+        if general_dialog:
+            general_dialog.hide()
+        logger.debug("Warning dialog closed")
+
 
 
 
