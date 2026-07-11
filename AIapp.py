@@ -138,6 +138,27 @@ class AppState:
     operation_cancelled: bool = False
     readonly_mode: bool = False
 
+    def __init__(self):
+        # Page 1: Read/Write
+        self.selected_disk: str = ""
+        self.image_path: str = ""
+        self.block_size: str = "4M"
+        self.disable_automount: bool = False
+        self.unmount_and_remount: bool = False
+        
+        # Page 2: Verify
+        self.verify_disk: str = ""
+        self.verify_image_path: str = ""
+        self.hash_algorithm_disk: str = "SHA256"
+        self.hash_algorithm_image: str = "SHA256"
+        
+        # Page 3: Clone
+        self.clone_source: str = ""
+        self.clone_target: str = ""
+        self.clone_block_size: str = "4M"
+        self.clone_disable_automount: bool = False
+        self.clone_unmount_and_remount: bool = False
+
     def reset_process_state(self) -> None:
         """Reset process-related state."""
         self.current_process = None
@@ -724,81 +745,172 @@ class DiskImagerApp:
 
     def __init__(self):
         """Initialize the application."""
-        self.state = AppState()
+        # Load Glade file
         self.builder = Gtk.Builder()
+        glade_path = Path(__file__).parent / "DiskImager.glade"
+        self.builder.add_objects_from_file(str(glade_path), [
+            "MyMainWindow",
+            "ReadDialogBox",
+            "WriteDialogBox",
+            "CloneDiskDialogBox",
+            "GeneralErrorWarning"
+        ])
         
-        # Load Glade file - CORRECTED PATH
-        glade_path = Path(__file__).parent / GLADE_FILE
-        
-        try:
-            self.builder.add_from_file(str(glade_path))
-        except Exception as e:
-            logger.error(f"Failed to load Glade file from {glade_path}: {e}")
-            logger.error("Ensure DiskImager.glade is in the same directory as AIapp.py")
-            sys.exit(1)
-        
-        # Get the main window - CORRECT ID
+        # Get main window
         self.window = self.builder.get_object("MyMainWindow")
         if not self.window:
-            logger.error("Main window 'MyMainWindow' not found in Glade file")
-            sys.exit(1)
+            raise RuntimeError("Failed to load main window from Glade file")
         
+        # Cache common widgets for quick access
+        self.progress_bar = self.builder.get_object("imageProgressBar")
+        self.status_label = self.builder.get_object("diskImageProgressPercentageLabel")
+        self.image_entry = self.builder.get_object("imageFileText")
+        
+        # Initialize state and managers
+        self.state = AppState()
+        self.disk_manager = DiskManager()
+        self.mount_manager = MountManager()
+        
+        # Operation flags
+        self.is_operating = False
+        self.operation_stopped = False
+        
+        # Connect all signals
+        self.connect_signals()
+        
+        # Load initial disk list
+        self.on_refresh_disks(None)
+        
+        # Set window icon if available
+        icon_path = Path(__file__).parent / "DiskImager.ico"
+        if icon_path.exists():
+            try:
+                self.window.set_icon_from_file(str(icon_path))
+            except:
+                pass
+        
+        # Connect window destroy signal
         self.window.connect("destroy", self.on_window_destroy)
         
-        self.setup_ui()
-        self.connect_signals()
+        # Show window
+        self.window.show_all()
 
 
-def setup_ui(self) -> None:
-    """Setup UI components."""
-    self.disk_combo = self.builder.get_object("diskSelectCombo")
-    self.block_size_combo = self.builder.get_object("selectblocksizeCombo")
-    self.image_entry = self.builder.get_object("imageFileText")
-    self.progress_bar = self.builder.get_object("imageProgressBar")
-    self.status_label = self.builder.get_object("diskImageProgressPercentageLabel")
-    self.disable_automount_check = self.builder.get_object("toggleDisableAutomount")
-    
-    # Verify all objects were found
-    required_objects = {
-        "diskSelectCombo": self.disk_combo,
-        "imageFileText": self.image_entry,
-        "selectblocksizeCombo": self.block_size_combo,
-        "imageProgressBar": self.progress_bar,
-        "toggleDisableAutomount": self.disable_automount_check,
-    }
-    
-    for obj_id, obj in required_objects.items():
-        if obj is None:
-            logger.error(f"Required object '{obj_id}' not found in Glade file")
+    def setup_ui(self) -> None:
+        """Setup UI components."""
+        self.disk_combo = self.builder.get_object("diskSelectCombo")
+        self.block_size_combo = self.builder.get_object("selectblocksizeCombo")
+        self.image_entry = self.builder.get_object("imageFileText")
+        self.progress_bar = self.builder.get_object("imageProgressBar")
+        self.status_label = self.builder.get_object("diskImageProgressPercentageLabel")
+        self.disable_automount_check = self.builder.get_object("toggleDisableAutomount")
+        
+        # Verify all objects were found
+        required_objects = {
+            "diskSelectCombo": self.disk_combo,
+            "imageFileText": self.image_entry,
+            "selectblocksizeCombo": self.block_size_combo,
+            "imageProgressBar": self.progress_bar,
+            "toggleDisableAutomount": self.disable_automount_check,
+        }
+        
+        for obj_id, obj in required_objects.items():
+            if obj is None:
+                logger.error(f"Required object '{obj_id}' not found in Glade file")
 
-def connect_signals(self) -> None:
-    """Manually connect signals from Glade objects to handler methods."""
-    # Get button objects from Glade and connect them
-    buttons_to_connect = {
-        "refreshButton": self.on_refresh_disks,
-        "readImageButton": self.on_read_clicked,
-        "writeImageButton": self.on_write_clicked,
-        "cloneDiskButton": self.on_clone_clicked,
-        "verifyButton": self.on_verify_clicked,
-        "stopButton": self.on_stop_clicked,
-        "browseButton": self.on_browse_clicked,
-        "quitButton": self.on_window_destroy,
-    }
-    
-    for button_id, handler in buttons_to_connect.items():
+    def connect_signals(self) -> None:
+        """Manually connect all signals from Glade objects to handler methods."""
+        
+        # PAGE 1: READ/WRITE Tab
+        self.connect_button("readImageButton", self.on_read_clicked)
+        self.connect_button("writeImageButton", self.on_write_clicked)
+        self.connect_button("refreshDiskButton", self.on_refresh_disks)
+        self.connect_button("quitButton", self.on_window_destroy)
+        self.connect_button("openSaveImageButton", self.on_browse_clicked)
+        
+        # Combo boxes and entries
+        self.connect_combo("diskSelectCombo", self.on_disk_selected)
+        self.connect_combo("selectblocksizeCombo", self.on_block_size_changed)
+        self.connect_checkbutton("toggleDisableAutomount", self.on_automount_toggled)
+        self.connect_checkbutton("toggleUnmountandRemount", self.on_remount_toggled)
+        self.connect_entry("imageFileText", self.on_image_path_changed)
+        
+        # Dialog buttons - Read Image Dialog
+        self.connect_button("DialogButtonOK", self.on_read_dialog_ok)
+        self.connect_button("DialogButtonCancel", self.on_read_dialog_cancel)
+        
+        # Dialog buttons - Write Image Dialog
+        self.connect_button("DialogButtonOK1", self.on_write_dialog_ok)
+        self.connect_button("DialogButtonCancel1", self.on_write_dialog_cancel)
+        
+        # General Warning Dialog
+        self.connect_button("GeneralWarningButton", self.on_general_warning_close)
+        
+        # PAGE 2: VERIFY Tab
+        self.connect_button("generateChecksumDiskButton", self.on_generate_checksum_disk)
+        self.connect_button("generateChecksumImageButton", self.on_generate_checksum_image)
+        self.connect_button("refreshDiskButton1", self.on_refresh_disks_verify)
+        self.connect_button("openimageButton2", self.on_browse_verify_image)
+        
+        self.connect_combo("verifydiskcombobox", self.on_verify_disk_selected)
+        self.connect_combo("checksumCombobox1", self.on_hash_type_disk_changed)
+        self.connect_combo("checksumCombobox2", self.on_hash_type_image_changed)
+        self.connect_entry("imageverifyentry", self.on_verify_image_path_changed)
+        
+        # PAGE 3: CLONE Tab
+        self.connect_button("CloneDiskButton", self.on_clone_disk_clicked)
+        self.connect_button("QuitButton1", self.on_window_destroy)
+        self.connect_button("refreshDiskButton2", self.on_refresh_disks_clone)
+        
+        self.connect_combo("clonediskcombobox1", self.on_clone_source_selected)
+        self.connect_combo("clonediskcombobox2", self.on_clone_target_selected)
+        self.connect_combo("selectblocksizeCombo1", self.on_clone_block_size_changed)
+        self.connect_checkbutton("toggleDisableAutomount1", self.on_clone_automount_toggled)
+        self.connect_checkbutton("toggleUnmountandRemount1", self.on_clone_remount_toggled)
+        
+        # Clone Dialog buttons
+        self.connect_button("DialogButtonOK3", self.on_clone_dialog_ok)
+        self.connect_button("DialogButtonCancel3", self.on_clone_dialog_cancel)
+
+    def connect_button(self, button_id: str, handler: Callable) -> None:
+        """Helper to safely connect button signals."""
         button = self.builder.get_object(button_id)
         if button:
             button.connect("clicked", handler)
+            logger.debug(f"Connected button: {button_id}")
         else:
-            logger.debug(f"Button '{button_id}' not found in Glade file")
-    
-    # Connect combo box signals
-    if self.block_size_combo:
-        self.block_size_combo.connect("changed", self.on_block_size_changed)
-    
-    # Connect checkbutton signals
-    if self.disable_automount_check:
-        self.disable_automount_check.connect("toggled", self.on_automount_toggled)
+            logger.debug(f"Button not found: {button_id}")
+
+    def connect_combo(self, combo_id: str, handler: Callable) -> None:
+        """Helper to safely connect combo box signals."""
+        combo = self.builder.get_object(combo_id)
+        if combo:
+            combo.connect("changed", handler)
+            logger.debug(f"Connected combo: {combo_id}")
+        else:
+            logger.debug(f"Combo not found: {combo_id}")
+
+    def connect_checkbutton(self, button_id: str, handler: Callable) -> None:
+        """Helper to safely connect checkbutton signals."""
+        button = self.builder.get_object(button_id)
+        if button:
+            button.connect("toggled", handler)
+            logger.debug(f"Connected checkbutton: {button_id}")
+        else:
+            logger.debug(f"Checkbutton not found: {button_id}")
+
+    def connect_entry(self, entry_id: str, handler: Callable) -> None:
+        """Helper to safely connect entry signals."""
+        entry = self.builder.get_object(entry_id)
+        if entry:
+            entry.connect("changed", handler)
+            logger.debug(f"Connected entry: {entry_id}")
+        else:
+            logger.debug(f"Entry not found: {entry_id}")
+
+
+
+
     def refresh_disks(self) -> None:
         """Refresh list of available disks."""
         self.disk_combo.remove_all()
@@ -1094,6 +1206,590 @@ def connect_signals(self) -> None:
         """Handle verify button."""
         logger.info("Verify operation started")
         # Add verify logic here
+
+# ===================== PAGE 1: READ/WRITE HANDLERS =====================
+
+    def on_disk_selected(self, widget) -> None:
+        """Handle disk selection from combo box."""
+        active_iter = widget.get_active_iter()
+        if active_iter:
+            model = widget.get_model()
+            self.state.selected_disk = model[active_iter][0]
+            logger.info(f"Disk selected: {self.state.selected_disk}")
+
+    def on_image_path_changed(self, widget) -> None:
+        """Handle image file path entry."""
+        self.state.image_path = widget.get_text()
+        logger.debug(f"Image path: {self.state.image_path}")
+
+    def on_block_size_changed(self, widget) -> None:
+        """Handle block size combo change (Page 1)."""
+        active_text = widget.get_active_text()
+        if active_text:
+            self.state.block_size = active_text
+            logger.debug(f"Block size changed to: {self.state.block_size}")
+
+    def on_automount_toggled(self, widget) -> None:
+        """Handle automount checkbox toggle (Page 1)."""
+        self.state.disable_automount = widget.get_active()
+        logger.debug(f"Automount disabled: {self.state.disable_automount}")
+
+    def on_remount_toggled(self, widget) -> None:
+        """Handle remount checkbox toggle (Page 1)."""
+        self.state.unmount_and_remount = widget.get_active()
+        logger.debug(f"Unmount and remount: {self.state.unmount_and_remount}")
+
+    def on_read_clicked(self, widget) -> None:
+        """Handle read disk to image button."""
+        if not self.state.selected_disk or not self.state.image_path:
+            self._show_error("Please select a disk and specify an image file path")
+            return
+        
+        # Show confirmation dialog
+        read_dialog = self.builder.get_object("ReadDialogBox")
+        read_label = self.builder.get_object("ReadDialogMessageLabel")
+        
+        read_label.set_text(
+            f"You are about to read disk {self.state.selected_disk} "
+            f"to image file:\n\n{self.state.image_path}\n\nProceed?"
+        )
+        read_dialog.set_transient_for(self.window)
+        read_dialog.set_modal(True)
+        read_dialog.run()
+
+    def on_write_clicked(self, widget) -> None:
+        """Handle write image to disk button."""
+        if not self.state.selected_disk or not self.state.image_path:
+            self._show_error("Please select a disk and specify an image file path")
+            return
+        
+        # Show confirmation dialog
+        write_dialog = self.builder.get_object("WriteDialogBox")
+        write_label = self.builder.get_object("WriteDialogMessageLabel")
+        
+        write_label.set_text(
+            f"You are about to write image file:\n\n{self.state.image_path} "
+            f"\n\nto disk {self.state.selected_disk}\n\nProceed?"
+        )
+        write_dialog.set_transient_for(self.window)
+        write_dialog.set_modal(True)
+        write_dialog.run()
+
+    def on_read_dialog_ok(self, widget) -> None:
+        """Handle OK button in read dialog."""
+        self.builder.get_object("ReadDialogBox").hide()
+        self._start_operation(OperationType.READ)
+
+    def on_read_dialog_cancel(self, widget) -> None:
+        """Handle Cancel button in read dialog."""
+        self.builder.get_object("ReadDialogBox").hide()
+
+    def on_write_dialog_ok(self, widget) -> None:
+        """Handle OK button in write dialog."""
+        self.builder.get_object("WriteDialogBox").hide()
+        self._start_operation(OperationType.WRITE)
+
+    def on_write_dialog_cancel(self, widget) -> None:
+        """Handle Cancel button in write dialog."""
+        self.builder.get_object("WriteDialogBox").hide()
+
+    def on_general_warning_close(self, widget) -> None:
+        """Handle OK button in general warning dialog."""
+        self.builder.get_object("GeneralErrorWarning").hide()
+
+
+
+# ===================== PAGE 2: VERIFY HANDLERS =====================
+
+    def on_verify_disk_selected(self, widget) -> None:
+        """Handle disk selection in verify tab."""
+        active_iter = widget.get_active_iter()
+        if active_iter:
+            model = widget.get_model()
+            self.state.verify_disk = model[active_iter][0]
+            logger.info(f"Verify disk selected: {self.state.verify_disk}")
+
+    def on_verify_image_path_changed(self, widget) -> None:
+        """Handle image path entry in verify tab."""
+        self.state.verify_image_path = widget.get_text()
+        logger.debug(f"Verify image path: {self.state.verify_image_path}")
+
+    def on_hash_type_disk_changed(self, widget) -> None:
+        """Handle hash type selection for disk."""
+        active_text = widget.get_active_text()
+        if active_text:
+            self.state.hash_algorithm_disk = active_text
+            logger.debug(f"Disk hash algorithm: {self.state.hash_algorithm_disk}")
+
+    def on_hash_type_image_changed(self, widget) -> None:
+        """Handle hash type selection for image."""
+        active_text = widget.get_active_text()
+        if active_text:
+            self.state.hash_algorithm_image = active_text
+            logger.debug(f"Image hash algorithm: {self.state.hash_algorithm_image}")
+
+    def on_generate_checksum_disk(self, widget) -> None:
+        """Generate checksum for disk."""
+        if not self.state.verify_disk:
+            self._show_error("Please select a disk")
+            return
+        
+        algorithm = self.state.hash_algorithm_disk or "SHA256"
+        logger.info(f"Generating {algorithm} hash for disk {self.state.verify_disk}")
+        
+        # Run in background thread
+        thread = threading.Thread(
+            target=self._compute_disk_hash,
+            args=(self.state.verify_disk, algorithm),
+            daemon=True
+        )
+        thread.start()
+
+    def on_generate_checksum_image(self, widget) -> None:
+        """Generate checksum for image file."""
+        if not self.state.verify_image_path or not Path(self.state.verify_image_path).exists():
+            self._show_error("Please select a valid image file")
+            return
+        
+        algorithm = self.state.hash_algorithm_image or "SHA256"
+        logger.info(f"Generating {algorithm} hash for image {self.state.verify_image_path}")
+        
+        # Run in background thread
+        thread = threading.Thread(
+            target=self._compute_file_hash,
+            args=(self.state.verify_image_path, algorithm),
+            daemon=True
+        )
+        thread.start()
+
+    def on_refresh_disks_verify(self, widget) -> None:
+        """Refresh disk list in verify tab."""
+        verify_combo = self.builder.get_object("verifydiskcombobox")
+        if verify_combo:
+            verify_combo.remove_all()
+            disks = DiskManager.discover_disks()
+            for disk in disks:
+                label = f"{disk.name} ({disk.size_human})"
+                verify_combo.append(disk.path, label)
+            if disks:
+                verify_combo.set_active(0)
+
+    def on_browse_verify_image(self, widget) -> None:
+        """Browse for image file in verify tab."""
+        dialog = Gtk.FileChooserDialog(
+            "Select Image File",
+            self.window,
+            Gtk.FileChooserAction.OPEN,
+            ("Cancel", Gtk.ResponseType.CANCEL, "Open", Gtk.ResponseType.ACCEPT)
+        )
+        response = dialog.run()
+        if response == Gtk.ResponseType.ACCEPT:
+            filename = dialog.get_filename()
+            verify_entry = self.builder.get_object("imageverifyentry")
+            if verify_entry:
+                verify_entry.set_text(filename)
+        dialog.destroy()
+
+# ===================== PAGE 3: CLONE HANDLERS =====================
+
+    def on_clone_disk_clicked(self, widget) -> None:
+        """Handle clone disk button."""
+        if not self.state.clone_source or not self.state.clone_target:
+            self._show_error("Please select both source and target disks")
+            return
+        
+        if self.state.clone_source == self.state.clone_target:
+            self._show_error("Source and target disks must be different")
+            return
+        
+        # Show confirmation dialog
+        clone_dialog = self.builder.get_object("CloneDiskDialogBox")
+        clone_label = self.builder.get_object("CloneDialogMessageLabel")
+        
+        clone_label.set_text(
+            f"Clone from {self.state.clone_source} to {self.state.clone_target}?\n\n"
+            f"This will overwrite all data on {self.state.clone_target}!\n\nProceed?"
+        )
+        clone_dialog.set_transient_for(self.window)
+        clone_dialog.set_modal(True)
+        clone_dialog.run()
+
+    def on_clone_dialog_ok(self, widget) -> None:
+        """Handle OK button in clone dialog."""
+        self.builder.get_object("CloneDiskDialogBox").hide()
+        self._start_operation(OperationType.CLONE)
+
+    def on_clone_dialog_cancel(self, widget) -> None:
+        """Handle Cancel button in clone dialog."""
+        self.builder.get_object("CloneDiskDialogBox").hide()
+
+    def on_refresh_disks_clone(self, widget) -> None:
+        """Refresh disk list in clone tab."""
+        source_combo = self.builder.get_object("clonediskcombobox1")
+        target_combo = self.builder.get_object("clonediskcombobox2")
+        
+        disks = DiskManager.discover_disks()
+        
+        if source_combo:
+            source_combo.remove_all()
+            for disk in disks:
+                label = f"{disk.name} ({disk.size_human})"
+                source_combo.append(disk.path, label)
+            if disks:
+                source_combo.set_active(0)
+        
+        if target_combo:
+            target_combo.remove_all()
+            for disk in disks:
+                label = f"{disk.name} ({disk.size_human})"
+                target_combo.append(disk.path, label)
+            if len(disks) > 1:
+                target_combo.set_active(1)
+            elif disks:
+                target_combo.set_active(0)
+
+    def on_refresh_disks(self, widget) -> None:
+        """Refresh disk list in read/write tab."""
+        disk_combo = self.builder.get_object("diskSelectCombo")
+        if disk_combo:
+            disk_combo.remove_all()
+            disks = DiskManager.discover_disks()
+            for disk in disks:
+                label = f"{disk.name} ({disk.size_human})"
+                disk_combo.append(disk.path, label)
+            if disks:
+                disk_combo.set_active(0)
+
+    def on_browse_clicked(self, widget) -> None:
+        """Handle browse button for image file selection."""
+        dialog = Gtk.FileChooserDialog(
+            "Select Image File",
+            self.window,
+            Gtk.FileChooserAction.SAVE,
+            ("Cancel", Gtk.ResponseType.CANCEL, "Save", Gtk.ResponseType.ACCEPT)
+        )
+        response = dialog.run()
+        if response == Gtk.ResponseType.ACCEPT:
+            filename = dialog.get_filename()
+            image_entry = self.builder.get_object("imageFileText")
+            if image_entry:
+                image_entry.set_text(filename)
+        dialog.destroy()
+
+    def on_window_destroy(self, widget) -> None:
+        """Handle window close/quit button."""
+        if self.is_operating:
+            response = self._show_confirmation(
+                "Operation in progress. Are you sure you want to quit?"
+            )
+            if response != Gtk.ResponseType.YES:
+                return
+            self.operation_stopped = True
+        
+        logger.info("Application closing")
+        Gtk.main_quit()
+
+    def on_stop_clicked(self, widget) -> None:
+        """Handle stop button during operation."""
+        self.operation_stopped = True
+        self.is_operating = False
+        self._show_status("Operation stopped by user", False)
+        logger.info("Operation stopped by user")
+
+# ===================== HELPER METHODS =====================
+
+    def _start_operation(self, operation_type: str) -> None:
+        """Start a disk operation (read, write, or clone) in background thread."""
+        if self.is_operating:
+            self._show_error("An operation is already in progress")
+            return
+        
+        self.is_operating = True
+        self.operation_stopped = False
+        
+        # Disable automount if requested
+        if self.state.disable_automount:
+            self.mount_manager.disable_automount()
+        
+        # Start operation in background thread
+        if operation_type == OperationType.READ:
+            thread = threading.Thread(
+                target=self._execute_read_operation,
+                daemon=True
+            )
+        elif operation_type == OperationType.WRITE:
+            thread = threading.Thread(
+                target=self._execute_write_operation,
+                daemon=True
+            )
+        elif operation_type == OperationType.CLONE:
+            thread = threading.Thread(
+                target=self._execute_clone_operation,
+                daemon=True
+            )
+        else:
+            return
+        
+        thread.start()
+
+    def _execute_read_operation(self) -> None:
+        """Execute read operation (disk to image)."""
+        try:
+            logger.info(f"Starting read operation: {self.state.selected_disk} -> {self.state.image_path}")
+            
+            disk_handler = DiskOperationHandler(
+                source=self.state.selected_disk,
+                destination=self.state.image_path,
+                block_size=self.state.block_size,
+                operation_type=OperationType.READ,
+                progress_callback=self._update_progress
+            )
+            
+            disk_handler.execute()
+            
+            if not self.operation_stopped:
+                GLib.idle_add(
+                    lambda: self._show_status(
+                        f"Successfully read {self.state.selected_disk} to {self.state.image_path}",
+                        True
+                    )
+                )
+            
+            logger.info("Read operation completed successfully")
+        
+        except Exception as e:
+            logger.error(f"Read operation failed: {e}")
+            GLib.idle_add(lambda: self._show_error(f"Read operation failed: {e}"))
+        
+        finally:
+            self.is_operating = False
+            if self.state.unmount_and_remount:
+                self.mount_manager.remount_disk(self.state.selected_disk)
+            if self.state.disable_automount:
+                self.mount_manager.enable_automount()
+
+    def _execute_write_operation(self) -> None:
+        """Execute write operation (image to disk)."""
+        try:
+            logger.info(f"Starting write operation: {self.state.image_path} -> {self.state.selected_disk}")
+            
+            disk_handler = DiskOperationHandler(
+                source=self.state.image_path,
+                destination=self.state.selected_disk,
+                block_size=self.state.block_size,
+                operation_type=OperationType.WRITE,
+                progress_callback=self._update_progress
+            )
+            
+            disk_handler.execute()
+            
+            if not self.operation_stopped:
+                GLib.idle_add(
+                    lambda: self._show_status(
+                        f"Successfully wrote {self.state.image_path} to {self.state.selected_disk}",
+                        True
+                    )
+                )
+            
+            logger.info("Write operation completed successfully")
+        
+        except Exception as e:
+            logger.error(f"Write operation failed: {e}")
+            GLib.idle_add(lambda: self._show_error(f"Write operation failed: {e}"))
+        
+        finally:
+            self.is_operating = False
+            if self.state.unmount_and_remount:
+                self.mount_manager.remount_disk(self.state.selected_disk)
+            if self.state.disable_automount:
+                self.mount_manager.enable_automount()
+
+    def _execute_clone_operation(self) -> None:
+        """Execute clone operation (disk to disk)."""
+        try:
+            logger.info(f"Starting clone operation: {self.state.clone_source} -> {self.state.clone_target}")
+            
+            disk_handler = DiskOperationHandler(
+                source=self.state.clone_source,
+                destination=self.state.clone_target,
+                block_size=self.state.clone_block_size,
+                operation_type=OperationType.CLONE,
+                progress_callback=self._update_progress
+            )
+            
+            disk_handler.execute()
+            
+            if not self.operation_stopped:
+                GLib.idle_add(
+                    lambda: self._show_status(
+                        f"Successfully cloned {self.state.clone_source} to {self.state.clone_target}",
+                        True
+                    )
+                )
+            
+            logger.info("Clone operation completed successfully")
+        
+        except Exception as e:
+            logger.error(f"Clone operation failed: {e}")
+            GLib.idle_add(lambda: self._show_error(f"Clone operation failed: {e}"))
+        
+        finally:
+            self.is_operating = False
+            if self.state.clone_disable_automount:
+                self.mount_manager.enable_automount()
+
+    def _compute_disk_hash(self, disk_path: str, algorithm: str) -> None:
+        """Compute hash of entire disk in background thread."""
+        try:
+            logger.info(f"Computing {algorithm} hash for {disk_path}")
+            
+            hasher = hashlib.new(algorithm.lower())
+            total_size = DiskManager.get_disk_size(disk_path)
+            bytes_read = 0
+            
+            with open(disk_path, 'rb') as f:
+                while True:
+                    if self.operation_stopped:
+                        break
+                    
+                    chunk = f.read(CHUNK_SIZE)
+                    if not chunk:
+                        break
+                    
+                    hasher.update(chunk)
+                    bytes_read += len(chunk)
+                    
+                    GLib.idle_add(
+                        lambda: self._update_verify_progress(
+                            bytes_read, total_size, f"Computing {algorithm}"
+                        )
+                    )
+            
+            hash_value = hasher.hexdigest()
+            
+            GLib.idle_add(
+                lambda: self._show_hash_result(
+                    f"{algorithm} Hash of {disk_path}:\n\n{hash_value}",
+                    algorithm
+                )
+            )
+            
+            logger.info(f"{algorithm} hash computed: {hash_value}")
+        
+        except Exception as e:
+            logger.error(f"Hash computation failed: {e}")
+            GLib.idle_add(lambda: self._show_error(f"Hash computation failed: {e}"))
+
+    def _compute_file_hash(self, file_path: str, algorithm: str) -> None:
+        """Compute hash of image file in background thread."""
+        try:
+            logger.info(f"Computing {algorithm} hash for {file_path}")
+            
+            hasher = hashlib.new(algorithm.lower())
+            total_size = Path(file_path).stat().st_size
+            bytes_read = 0
+            
+            with open(file_path, 'rb') as f:
+                while True:
+                    if self.operation_stopped:
+                        break
+                    
+                    chunk = f.read(CHUNK_SIZE)
+                    if not chunk:
+                        break
+                    
+                    hasher.update(chunk)
+                    bytes_read += len(chunk)
+                    
+                    GLib.idle_add(
+                        lambda: self._update_verify_progress(
+                            bytes_read, total_size, f"Computing {algorithm}"
+                        )
+                    )
+            
+            hash_value = hasher.hexdigest()
+            
+            GLib.idle_add(
+                lambda: self._show_hash_result(
+                    f"{algorithm} Hash of {file_path}:\n\n{hash_value}",
+                    algorithm
+                )
+            )
+            
+            logger.info(f"{algorithm} hash computed: {hash_value}")
+        
+        except Exception as e:
+            logger.error(f"Hash computation failed: {e}")
+            GLib.idle_add(lambda: self._show_error(f"Hash computation failed: {e}"))
+
+    def _show_hash_result(self, message: str, algorithm: str) -> None:
+        """Display hash result in a dialog."""
+        dialog = Gtk.MessageDialog(
+            parent=self.window,
+            flags=Gtk.DialogFlags.MODAL,
+            type=Gtk.MessageType.INFO,
+            buttons=Gtk.ButtonsType.OK,
+            message_format=message
+        )
+        dialog.run()
+        dialog.destroy()
+
+    def _show_confirmation(self, message: str) -> int:
+        """Show a yes/no confirmation dialog."""
+        dialog = Gtk.MessageDialog(
+            parent=self.window,
+            flags=Gtk.DialogFlags.MODAL,
+            type=Gtk.MessageType.QUESTION,
+            buttons=Gtk.ButtonsType.YES_NO,
+            message_format=message
+        )
+        response = dialog.run()
+        dialog.destroy()
+        return response
+
+    def _update_progress(self, bytes_done: int, total_bytes: int, status: str) -> None:
+        """Update progress bar and status label."""
+        if total_bytes > 0:
+            fraction = bytes_done / total_bytes
+            progress_bar = self.builder.get_object("imageProgressBar")
+            if progress_bar:
+                GLib.idle_add(lambda: progress_bar.set_fraction(fraction))
+        
+        percentage = int((bytes_done / total_bytes) * 100) if total_bytes > 0 else 0
+        status_label = self.builder.get_object("diskImageProgressPercentageLabel")
+        if status_label:
+            GLib.idle_add(lambda: status_label.set_text(f"{status} {percentage}%"))
+
+    def _update_verify_progress(self, bytes_done: int, total_bytes: int, status: str) -> None:
+        """Update verification progress."""
+        self._update_progress(bytes_done, total_bytes, status)
+
+    def _show_status(self, message: str, success: bool) -> None:
+        """Display status message."""
+        dialog_type = Gtk.MessageType.INFO if success else Gtk.MessageType.ERROR
+        dialog = Gtk.MessageDialog(
+            parent=self.window,
+            flags=Gtk.DialogFlags.MODAL,
+            type=dialog_type,
+            buttons=Gtk.ButtonsType.OK,
+            message_format=message
+        )
+        dialog.run()
+        dialog.destroy()
+        logger.info(f"Operation result: {message}")
+
+    def _show_error(self, message: str) -> None:
+        """Display an error dialog."""
+        dialog = Gtk.MessageDialog(
+            parent=self.window,
+            flags=Gtk.DialogFlags.MODAL,
+            type=Gtk.MessageType.ERROR,
+            buttons=Gtk.ButtonsType.OK,
+            message_format=message
+        )
+        dialog.run()
+        dialog.destroy()
+        logger.error(f"Error: {message}")
 
 
 
