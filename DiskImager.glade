@@ -422,24 +422,22 @@
             </child>
             <child>
               <object class="GtkComboBox" id="diskSelectCombo">
-                <property name="width-request">305</property>
-                <property name="height-request">35</property>
-                <property name="visible">True</property>
-                <property name="can-focus">False</property>
-                <property name="model">liststore1</property>
-                <property name="row-span-column">0</property>
-                <property name="column-span-column">0</property>
-                <property name="active">0</property>
-                <property name="entry-text-column">0</property>
-                <property name="id-column">0</property>
-                <signal name="changed" handler="on_diskSelectCombo_changed" swapped="no"/>
-                <child>
-                  <object class="GtkCellRendererText" id="Select A Disk"/>
-                  <attributes>
-                    <attribute name="alignment">0</attribute>
-                    <attribute name="markup">0</attribute>
-                  </attributes>
-                </child>
+    		<property name="width-request">305</property>
+    		<property name="height-request">35</property>
+    		<property name="visible">True</property>
+    		<property name="can-focus">False</property>
+    		<property name="model">liststore1</property>
+    		<property name="active">0</property>
+    		<signal name="changed" handler="on_diskSelectCombo_changed" swapped="no"/>
+    		<child>
+        		<object class="GtkCellRendererText" id="DiskCellRenderer"/>
+    		</child>
+  	      </object>
+              <packing>
+                <property name="x">15</property>
+                <property name="y">18</property>
+              </packing>
+           </child>
               </object>
               <packing>
                 <property name="x">15</property>
