@@ -769,19 +769,38 @@ class DiskImagerApp:
         # Operation flags
         self.is_operating = False
         self.operation_stopped = False
-        
+        self.setup_ui()
         # Connect all signals
         self.connect_signals()
 
-        # Configure diskSelectCombo cell renderer binding
-        # Bind cell renderer to diskSelectCombo
+                # Initialize diskSelectCombo with proper model and renderers
         disk_combo = self.builder.get_object("diskSelectCombo")
-        disk_cell = self.builder.get_object("DiskCellRenderer")
-        if disk_combo and disk_cell:
-            disk_combo.pack_start(disk_cell, True)
-            disk_combo.add_attribute(disk_cell, "text", 0)
-
-        
+        if disk_combo:
+            # Create ListStore for disk selection
+            disk_liststore = Gtk.ListStore(str, str, str)  # name, size_fs, size_total
+            disk_combo.set_model(disk_liststore)
+            
+            # Add first column (disk name)
+            renderer_name = Gtk.CellRendererText()
+            renderer_name.props.alignment = Pango.Alignment.LEFT
+            disk_combo.pack_start(renderer_name, True)
+            disk_combo.add_attribute(renderer_name, "text", 0)
+            
+            # Add second column (filesystem size)
+            renderer_size_fs = Gtk.CellRendererText()
+            renderer_size_fs.props.alignment = Pango.Alignment.LEFT
+            disk_combo.pack_start(renderer_size_fs, True)
+            disk_combo.add_attribute(renderer_size_fs, "text", 1)
+            
+            # Add third column (total disk size)
+            renderer_size_total = Gtk.CellRendererText()
+            renderer_size_total.props.alignment = Pango.Alignment.LEFT
+            disk_combo.pack_start(renderer_size_total, True)
+            disk_combo.add_attribute(renderer_size_total, "text", 2)
+            
+            # Prepend "Select Disk" option
+            disk_liststore.append(["Select Disk", " File System Size", "Total Disk Size"])
+                
         # Load initial disk list
         self.on_refresh_disks(None)
         
@@ -939,26 +958,23 @@ class DiskImagerApp:
         
         model = disk_combo.get_model()
         if model is None:
-            logger.warning("No model found for diskSelectCombo")
+            logger.error("diskSelectCombo has no model - initialization failed")
             return
         
+        # Clear existing entries (but keep the "Select Disk" header)
         model.clear()
+        model.append(["Select Disk", " File System Size", "Total Disk Size"])
         
         try:
             disks = self.disk_manager.discover_disks()
-            logger.info(f"discover_disks returned {len(disks)} disks")
-            
+            logger.info(f"Discovered {len(disks)} disks")
             for disk in disks:
-                logger.debug(f"Appending disk: name={disk.name}, size_human={disk.size_human}")
-                model.append([disk.name, "", disk.size_human])  # ✅ FIX: Use size_human, not size
+                logger.debug(f"Adding disk: {disk.name} ({disk.size_human})")
+                model.append([disk.name, "", disk.size_human])
             
-            if disks:
-                disk_combo.set_active(0)
-            
-            logger.info(f"Disk list refreshed: {len(disks)} disks found")
+            disk_combo.set_active(0)  # Select "Select Disk" by default
         except Exception as e:
-            logger.error(f"Error refreshing disks: {e}", exc_info=True)  # ✅ FIX: Add exc_info=True
-            self.on_generalWarningError(f"Error refreshing disk list: {e}")
+            logger.error(f"Error refreshing disks: {e}")
 
 
     def on_browse_clicked(self, widget) -> None:
