@@ -938,10 +938,9 @@ class DiskImagerApp:
         
         # Refresh disk list
         try:
-            disks = self.disk_manager.get_available_disks()
-            model.append(["Select Disk"])
+            disks = self.disk_manager.discover_disks()
             for disk in disks:
-                model.append([disk])
+                model.append([disk.name, "", str(disk.size)])
             disk_combo.set_active(0)
             logger.info(f"Disk list refreshed: {len(disks)} disks found")
         except Exception as e:
