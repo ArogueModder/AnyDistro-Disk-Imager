@@ -727,8 +727,9 @@ class DiskImagerApp:
         self.state = AppState()
         self.builder = Gtk.Builder()
         
-        # Load Glade file
+        # Load Glade file - CORRECTED PATH
         glade_path = Path(__file__).parent / GLADE_FILE
+        
         try:
             self.builder.add_from_file(str(glade_path))
         except Exception as e:
@@ -736,7 +737,7 @@ class DiskImagerApp:
             logger.error("Ensure DiskImager.glade is in the same directory as AIapp.py")
             sys.exit(1)
         
-        # Get the main window - CORRECTED ID
+        # Get the main window - CORRECT ID
         self.window = self.builder.get_object("MyMainWindow")
         if not self.window:
             logger.error("Main window 'MyMainWindow' not found in Glade file")
@@ -746,6 +747,7 @@ class DiskImagerApp:
         
         self.setup_ui()
         self.connect_signals()
+
 
 def setup_ui(self) -> None:
     """Setup UI components."""
@@ -771,44 +773,32 @@ def setup_ui(self) -> None:
 
 def connect_signals(self) -> None:
     """Manually connect signals from Glade objects to handler methods."""
-    # Get button objects from Glade
-    read_button = self.builder.get_object("readImageButton")
-    write_button = self.builder.get_object("writeImageButton")
-    quit_button = self.builder.get_object("quitButton")
-    clone_button = self.builder.get_object("cloneDiskButton")  # Adjust ID if needed
+    # Get button objects from Glade and connect them
+    buttons_to_connect = {
+        "refreshButton": self.on_refresh_disks,
+        "readImageButton": self.on_read_clicked,
+        "writeImageButton": self.on_write_clicked,
+        "cloneDiskButton": self.on_clone_clicked,
+        "verifyButton": self.on_verify_clicked,
+        "stopButton": self.on_stop_clicked,
+        "browseButton": self.on_browse_clicked,
+        "quitButton": self.on_window_destroy,
+    }
     
-    # Connect button signals
-    if read_button:
-        read_button.connect("clicked", self.on_read_clicked)
-    if write_button:
-        write_button.connect("clicked", self.on_write_clicked)
-    if quit_button:
-        quit_button.connect("clicked", self.on_window_destroy)
-    if clone_button:
-        clone_button.connect("clicked", self.on_clone_clicked)
+    for button_id, handler in buttons_to_connect.items():
+        button = self.builder.get_object(button_id)
+        if button:
+            button.connect("clicked", handler)
+        else:
+            logger.debug(f"Button '{button_id}' not found in Glade file")
     
-    # Connect dialog buttons
-    read_dialog_ok = self.builder.get_object("DialogButtonOK")
-    read_dialog_cancel = self.builder.get_object("DialogButtonCancel")
-    clone_dialog_ok = self.builder.get_object("DialogButtonOK3")
-    clone_dialog_cancel = self.builder.get_object("DialogButtonCancel3")
-    
-    if read_dialog_ok:
-        read_dialog_ok.connect("clicked", self.on_read_dialog_ok)
-    if read_dialog_cancel:
-        read_dialog_cancel.connect("clicked", self.on_dialog_cancel)
-    if clone_dialog_ok:
-        clone_dialog_ok.connect("clicked", self.on_clone_dialog_ok)
-    if clone_dialog_cancel:
-        clone_dialog_cancel.connect("clicked", self.on_dialog_cancel)
-    
-    # Connect checkbox and combo
-    if self.disable_automount_check:
-        self.disable_automount_check.connect("toggled", self.on_automount_toggled)
+    # Connect combo box signals
     if self.block_size_combo:
         self.block_size_combo.connect("changed", self.on_block_size_changed)
-
-
+    
+    # Connect checkbutton signals
+    if self.disable_automount_check:
+        self.disable_automount_check.connect("toggled", self.on_automount_toggled)
     def refresh_disks(self) -> None:
         """Refresh list of available disks."""
         self.disk_combo.remove_all()
@@ -1059,31 +1049,26 @@ def connect_signals(self) -> None:
         Gtk.main()
     
         # Dialog and checkbox handlers
-    def on_read_dialog_ok(self, widget) -> None:
-        """Handle read dialog OK."""
-        self.on_read_clicked(widget)
-
-    def on_clone_dialog_ok(self, widget) -> None:
-        """Handle clone dialog OK."""
-        self.on_clone_clicked(widget)
-
-    def on_dialog_cancel(self, widget) -> None:
-        """Handle dialog cancel."""
-        logger.info("Operation cancelled by user")
+    def on_block_size_changed(self, widget) -> None:
+        """Handle block size combo change."""
+        self.state.block_size = widget.get_active_text()
+        logger.debug(f"Block size changed to: {self.state.block_size}")
 
     def on_automount_toggled(self, widget) -> None:
         """Handle automount checkbox toggle."""
         self.state.disable_automount = widget.get_active()
         logger.debug(f"Automount disabled: {self.state.disable_automount}")
 
-    def on_block_size_changed(self, widget) -> None:
-        """Handle block size combo change."""
-        self.state.block_size = widget.get_active_text()
-        logger.debug(f"Block size changed to: {self.state.block_size}")
+    def on_stop_clicked(self, widget) -> None:
+        """Handle stop button."""
+        self.state.cancel_requested = True
+        logger.info("Stop requested by user")
 
-    def on_window_destroy(self, widget) -> None:
-        """Handle window close."""
-        Gtk.main_quit()
+    def on_verify_clicked(self, widget) -> None:
+        """Handle verify button."""
+        logger.info("Verify operation started")
+        # Add verify logic here
+
 
 
 
