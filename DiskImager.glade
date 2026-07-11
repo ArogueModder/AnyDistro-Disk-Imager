@@ -674,12 +674,14 @@ Remount disk</property>
                             <property name="can-focus">False</property>
                             <signal name="changed" handler="on_verifydiskcombobox_changed" swapped="no"/>
                             <child>
-                              <object class="GtkCellRendererText" id="SelectDiskRenderer2"/>
-                              <attributes>
-                                <attribute name="alignment">0</attribute>
-                                <attribute name="markup">0</attribute>
-                              </attributes>
-                            </child>
+				<object class="GtkCellRendererText" id="SelectDiskRenderer2">
+				<attributes>
+				<attribute name="alignment">0</attribute>
+				<attribute name="markup">0</attribute>
+				</attributes>
+				</object>
+				</child>
+
                           </object>
                           <packing>
                             <property name="x">5</property>
@@ -716,12 +718,13 @@ Remount disk</property>
                             <property name="model">liststore3</property>
                             <signal name="changed" handler="on_checksumCombobox1_changed" swapped="no"/>
                             <child>
-                              <object class="GtkCellRendererText" id="SelectHashRenderer"/>
-                              <attributes>
-                                <attribute name="alignment">0</attribute>
-                                <attribute name="markup">0</attribute>
-                              </attributes>
-                            </child>
+				<object class="GtkCellRendererText" id="SelectHashRenderer">
+				<attributes>
+				<attribute name="alignment">0</attribute>
+				<attribute name="markup">0</attribute>
+				</attributes>
+				</object>
+				</child>
                           </object>
                           <packing>
                             <property name="x">5</property>
@@ -974,12 +977,13 @@ Remount disk</property>
                             <property name="can-focus">False</property>
                             <signal name="changed" handler="on_clonediskcombobox1_changed" swapped="no"/>
                             <child>
-                              <object class="GtkCellRendererText" id="SelectDiskRenderer1"/>
-                              <attributes>
-                                <attribute name="alignment">0</attribute>
-                                <attribute name="markup">0</attribute>
-                              </attributes>
-                            </child>
+				<object class="GtkCellRendererText" id="SelectDiskRenderer1">
+				<attributes>
+				<attribute name="alignment">0</attribute>
+				<attribute name="markup">0</attribute>
+				</attributes>
+				</object>
+				</child>
                           </object>
                           <packing>
                             <property name="x">5</property>
