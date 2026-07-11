@@ -772,6 +772,15 @@ class DiskImagerApp:
         
         # Connect all signals
         self.connect_signals()
+
+        # Configure diskSelectCombo cell renderer binding
+        # Bind cell renderer to diskSelectCombo
+        disk_combo = self.builder.get_object("diskSelectCombo")
+        disk_cell = self.builder.get_object("DiskCellRenderer")
+        if disk_combo and disk_cell:
+            disk_combo.pack_start(disk_cell, True)
+            disk_combo.add_attribute(disk_cell, "text", 0)
+
         
         # Load initial disk list
         self.on_refresh_disks(None)
