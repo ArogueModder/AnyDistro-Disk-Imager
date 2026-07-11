@@ -859,6 +859,32 @@ def connect_signals(self) -> None:
         """Handle stop button."""
         self.state.operation_cancelled = True
 
+
+    def on_block_size_changed(self, widget) -> None:
+        """Handle block size combo change."""
+        active_text = widget.get_active_text()
+        if active_text:
+            self.state.block_size = active_text
+            logger.debug(f"Block size changed to: {self.state.block_size}")
+
+    def on_automount_toggled(self, widget) -> None:
+        """Handle automount checkbox toggle."""
+        self.state.disable_automount = widget.get_active()
+        logger.debug(f"Automount disabled: {self.state.disable_automount}")
+
+    def _show_error(self, message: str) -> None:
+        """Display an error dialog."""
+        dialog = Gtk.MessageDialog(
+            parent=self.window,
+            flags=Gtk.DialogFlags.MODAL,
+            type=Gtk.MessageType.ERROR,
+            buttons=Gtk.ButtonsType.OK,
+            message_format=message
+        )
+        dialog.run()
+        dialog.destroy()
+
+
     def _validate_read_operation(self) -> bool:
         """Validate read operation parameters."""
         if not self.state.selected_disk:
