@@ -749,7 +749,6 @@ class DiskImagerApp:
         self.builder = Gtk.Builder()
         glade_path = Path(__file__).parent / "DiskImager.glade"
         self.builder.add_from_file(str(glade_path))
-
         
         # Get main window
         self.window = self.builder.get_object("MyMainWindow")
@@ -770,50 +769,38 @@ class DiskImagerApp:
         self.is_operating = False
         self.operation_stopped = False
         
-        # ===== MOVE COMBO INIT BEFORE setup_ui() =====
-        # Initialize diskSelectCombo with proper model and renderers
+        # ===== INITIALIZE COMBOBOX WITH GLADE LISTSTORE =====
+        # Initialize diskSelectCombo with existing liststore1 from Glade
         disk_combo = self.builder.get_object("diskSelectCombo")
         if disk_combo:
             logger.info("diskSelectCombo found")
-            # Create ListStore for disk selection
-            disk_liststore = Gtk.ListStore(str, str, str)  # name, size_fs, size_total
-            logger.info(f"Created ListStore with {disk_liststore.get_n_columns()} columns")
             
-            disk_combo.set_model(disk_liststore)
-            logger.info("Model assigned to diskSelectCombo")
-            
-            # Verify model was assigned
-            assigned_model = disk_combo.get_model()
-            logger.info(f"After assignment, diskSelectCombo.get_model() returns: {assigned_model} with {assigned_model.get_n_columns() if assigned_model else 'N/A'} columns")
-            
-            # Add first column (disk name)
-            renderer_name = Gtk.CellRendererText()
-            renderer_name.props.alignment = Pango.Alignment.LEFT
-            disk_combo.pack_start(renderer_name, True)
-            disk_combo.add_attribute(renderer_name, "text", 0)
-            logger.debug("Added renderer for column 0")
-            
-            # Add second column (filesystem size)
-            renderer_size_fs = Gtk.CellRendererText()
-            renderer_size_fs.props.alignment = Pango.Alignment.LEFT
-            disk_combo.pack_start(renderer_size_fs, True)
-            disk_combo.add_attribute(renderer_size_fs, "text", 1)
-            logger.debug("Added renderer for column 1")
-            
-            # Add third column (total disk size)
-            renderer_size_total = Gtk.CellRendererText()
-            renderer_size_total.props.alignment = Pango.Alignment.LEFT
-            disk_combo.pack_start(renderer_size_total, True)
-            disk_combo.add_attribute(renderer_size_total, "text", 2)
-            logger.debug("Added renderer for column 2")
-            
-            # Prepend "Select Disk" option
-            disk_liststore.append(["Select Disk", " File System Size", "Total Disk Size"])
-            logger.info("Added header row to diskSelectCombo model")
+            # GET the ListStore that's already defined in Glade (NOT creating a new one)
+            disk_liststore = self.builder.get_object("liststore1")
+            if disk_liststore:
+                logger.info(f"Using existing liststore1 from Glade with {disk_liststore.get_n_columns()} columns")
+                
+                # Clear any existing rows
+                disk_liststore.clear()
+                
+               # Clear any existing renderers from Glade (it only has 1, we need 3)
+                disk_combo.clear()
+
+                # Add the 3 cell renderers
+                for col_index in range(3):
+                    renderer = Gtk.CellRendererText()
+                    disk_combo.pack_start(renderer, True)
+                    disk_combo.add_attribute(renderer, "text", col_index)
+                    logger.debug(f"Added renderer for column {col_index}")
+                # Add header row
+                disk_liststore.append(["Select Disk", " File System Size", "Total Disk Size"])
+                logger.info("Added header row to diskSelectCombo model")
+            else:
+                logger.error("liststore1 not found in Glade file!")
         else:
             logger.error("diskSelectCombo not found in Glade!")
-            
-        # NOW call setup_ui (after combo is initialized)
+        
+        # Setup UI (cache widget references)
         self.setup_ui()
         
         # Connect all signals
@@ -836,6 +823,7 @@ class DiskImagerApp:
         
         # Show window
         self.window.show_all()
+
 
     def setup_ui(self) -> None:
         """Setup UI components."""
@@ -979,21 +967,50 @@ class DiskImagerApp:
             logger.error("diskSelectCombo has no model - initialization failed")
             return
         
+        # ===== DEBUG: Verify model structure =====
+        logger.info(f"Model type: {type(model)}")
+        logger.info(f"Model has {model.get_n_columns()} columns")
+        
+        # Verify column types
+        for i in range(model.get_n_columns()):
+            col_type = model.get_column_type(i)
+            logger.info(f"  Column {i}: {col_type}")
+        
         # Clear existing entries (but keep the "Select Disk" header)
         model.clear()
-        model.append(["Select Disk", " File System Size", "Total Disk Size"])
+        
+        # Test: Append header row
+        header_row = ["Select Disk", " File System Size", "Total Disk Size"]
+        logger.info(f"Appending header: {header_row} (length: {len(header_row)})")
+        try:
+            model.append(header_row)
+            logger.info("Header row appended successfully")
+        except Exception as e:
+            logger.error(f"ERROR appending header: {e}")
+            import traceback
+            traceback.print_exc()
+            return
         
         try:
             disks = self.disk_manager.discover_disks()
             logger.info(f"Discovered {len(disks)} disks")
             for disk in disks:
-                logger.debug(f"Adding disk: {disk.name} ({disk.size_human})")
-                model.append([disk.name, "", disk.size_human])
+                disk_row = [disk.name, "", disk.size_human]
+                logger.debug(f"Appending disk row: {disk_row} (length: {len(disk_row)})")
+                try:
+                    model.append(disk_row)
+                except Exception as e:
+                    logger.error(f"ERROR appending disk row {disk_row}: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    continue
             
             disk_combo.set_active(0)  # Select "Select Disk" by default
+            logger.info("Disk refresh completed successfully")
         except Exception as e:
-            logger.error(f"Error refreshing disks: {e}")
-
+            logger.error(f"Error discovering disks: {e}")
+            import traceback
+            traceback.print_exc()
 
     def on_browse_clicked(self, widget) -> None:
         """Handle browse for image file."""
@@ -1618,49 +1635,7 @@ class DiskImagerApp:
         logger.info("Clone disk lists refreshed")
 
 
-    def on_refresh_disks(self, widget):
-        """Handler for refreshing disk list in read/write tab."""
-        logger.info("Refresh disks button clicked")
-        disk_combo = self.builder.get_object("diskSelectCombo")
-        if disk_combo is None:
-            logger.error("diskSelectCombo not found")
-            return
-        
-        # Get the model (ListStore) from the combo box
-        model = disk_combo.get_model()
-        if model:
-            model.clear()
-        else:
-            logger.warning("No model found for diskSelectCombo")
-            return
-        
-        # Refresh disk list
-        try:
-            disks = self.disk_manager.discover_disks()  # Fixed: discover_disks, not get_available_disks
-            model.append(["Select Disk"])
-            for disk in disks:
-                model.append([disk.name])  # Fixed: append disk.name, not disk object
-            disk_combo.set_active(0)
-            logger.info(f"Disk list refreshed: {len(disks)} disks found")
-        except Exception as e:
-            logger.error(f"Error refreshing disks: {e}")
-            self.on_generalWarningError(f"Error refreshing disk list: {e}")
-        def on_browse_clicked(self, widget) -> None:
-            """Handle browse button for image file selection."""
-            dialog = Gtk.FileChooserDialog(
-                "Select Image File",
-                self.window,
-                Gtk.FileChooserAction.SAVE,
-                ("Cancel", Gtk.ResponseType.CANCEL, "Save", Gtk.ResponseType.ACCEPT)
-            )
-            response = dialog.run()
-            if response == Gtk.ResponseType.ACCEPT:
-                filename = dialog.get_filename()
-                image_entry = self.builder.get_object("imageFileText")
-                if image_entry:
-                    image_entry.set_text(filename)
-            dialog.destroy()
-
+    
     def on_window_destroy(self, widget) -> None:
         """Handle window close/quit button."""
         if self.is_operating:
