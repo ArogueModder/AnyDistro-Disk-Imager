@@ -748,13 +748,8 @@ class DiskImagerApp:
         # Load Glade file
         self.builder = Gtk.Builder()
         glade_path = Path(__file__).parent / "DiskImager.glade"
-        self.builder.add_objects_from_file(str(glade_path), [
-            "MyMainWindow",
-            "ReadDialogBox",
-            "WriteDialogBox",
-            "CloneDiskDialogBox",
-            "GeneralErrorWarning"
-        ])
+        self.builder.add_from_file(str(glade_path))
+
         
         # Get main window
         self.window = self.builder.get_object("MyMainWindow")
