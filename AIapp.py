@@ -928,23 +928,27 @@ class DiskImagerApp:
             logger.error("diskSelectCombo not found")
             return
         
-        # Get the model (ListStore) from the combo box
         model = disk_combo.get_model()
-        if model:
-            model.clear()
-        else:
+        if model is None:
             logger.warning("No model found for diskSelectCombo")
             return
         
-        # Refresh disk list
+        model.clear()
+        
         try:
             disks = self.disk_manager.discover_disks()
+            logger.info(f"discover_disks returned {len(disks)} disks")
+            
             for disk in disks:
-                model.append([disk.name, "", str(disk.size)])
-            disk_combo.set_active(0)
+                logger.debug(f"Appending disk: name={disk.name}, size_human={disk.size_human}")
+                model.append([disk.name, "", disk.size_human])  # ✅ FIX: Use size_human, not size
+            
+            if disks:
+                disk_combo.set_active(0)
+            
             logger.info(f"Disk list refreshed: {len(disks)} disks found")
         except Exception as e:
-            logger.error(f"Error refreshing disks: {e}")
+            logger.error(f"Error refreshing disks: {e}", exc_info=True)  # ✅ FIX: Add exc_info=True
             self.on_generalWarningError(f"Error refreshing disk list: {e}")
 
 
