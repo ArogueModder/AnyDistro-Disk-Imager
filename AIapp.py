@@ -4,17 +4,59 @@ AnyDistro Disk Imager - A GTK3-based disk imaging utility for Linux.
 Features: Read/Write disk images, verify operations, clone disks.
 Refactored version with improved code structure and error handling.
 """
+import os
+import sys
+import subprocess
+import logging
+
+# Setup basic logging first
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - DiskImager - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+def ensure_elevated_privileges():
+    """Re-execute with pkexec if not running as root."""
+    if os.geteuid() == 0:
+        logger.info("Running as root")
+        return
+    
+    logger.info("Requesting elevation via pkexec...")
+    
+    # Get the absolute path to the Python interpreter
+    python_exe = sys.executable
+    
+    # Preserve DISPLAY and XAUTHORITY for X11
+    env = os.environ.copy()
+    display = env.get('DISPLAY', ':0')
+    
+    try:
+        # Use subprocess with proper environment
+        result = subprocess.run(
+            ['pkexec', 'env', f'DISPLAY={display}', 'XAUTHORITY=' + env.get('XAUTHORITY', os.path.expanduser('~/.Xauthority')), python_exe] + sys.argv,
+            env=env
+        )
+        sys.exit(result.returncode)
+    
+    except FileNotFoundError:
+        logger.error("pkexec not found. Install: sudo apt install policykit-1")
+        logger.error("Cannot continue without elevation for disk operations.")
+        sys.exit(1)
+
+# Call BEFORE importing GTK
+ensure_elevated_privileges()
 import gi
 import subprocess
 import time
-import os
-import sys
+#import os
+#import sys
 import threading
 import fcntl
 import signal
 import re
 import shutil
-import logging
+#import logging
 import logging.handlers
 import errno
 import json
@@ -33,6 +75,8 @@ try:
 except ImportError:
     def playsound(sound_file):
         pass
+
+
 
 # ============================================================================
 # CONFIGURATION & CONSTANTS
@@ -98,18 +142,65 @@ class DiskInfo:
     @property
     def size_human(self) -> str:
         """Return human-readable size."""
-        return self._format_bytes(self.size_bytes)
+        return self._format_bytes(self.size_bytes, base=1000)
+
+    @property
+    def filesystem_size_human(self) -> str:
+        """Return human-readable filesystem size."""
+        return self._get_filesystem_size()
+    
+    def _get_filesystem_size(self) -> str:
+        """Get total size of all partitions on this disk."""
+        try:
+            # Query lsblk for all partitions on this disk
+            result = subprocess.run(
+                ["lsblk", "-b", "-o", "NAME,SIZE,TYPE", self.path],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False
+            )
+            if result.returncode == 0 and result.stdout:
+                lines = result.stdout.strip().split('\n')
+                total_partition_size = 0
+                
+                # Skip header (first line) and only sum partition lines
+                for line in lines[1:]:
+                    parts = line.split()
+                    if len(parts) >= 3:
+                        # Check if this is a partition (not the disk itself)
+                        if parts[-1] == 'part':
+                            try:
+                                size = int(parts[1])
+                                total_partition_size += size
+                            except ValueError:
+                                continue
+                
+                # If we found partitions, return their total size
+                if total_partition_size > 0:
+                    return self._format_bytes(total_partition_size, base=1024)
+        except Exception as e:
+            logger.debug(f"Could not get filesystem size for {self.name}: {e}")
+        
+        # If no partitions found, return a placeholder (not the disk size!)
+        return "N/A"
+    
 
     @staticmethod
-    def _format_bytes(n: float, base: int = 1000) -> str:
-        """Format bytes to human-readable format."""
-        units = ['B', 'KB', 'MB', 'GB', 'TB', 'PiB']
+    def _format_bytes(n: float, base: int = 1024) -> str:
+        """Format bytes to human-readable format.
+        
+        Args:
+            n: Number of bytes
+            base: 1000 (decimal) or 1024 (binary, default)
+        """
+        units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
         n = float(n)
         for unit in units:
             if abs(n) < base or unit == units[-1]:
-                return f"{n:.1f}{unit}"
+                return f"{n:.1f} {unit}"
             n /= base
-        return f"{n:.1f}{units[-1]}"
+        return f"{n:.1f} {units[-1]}"
 
 @dataclass
 class AppState:
@@ -202,7 +293,7 @@ class DiskManager:
         """Discover all block devices on the system."""
         try:
             result = subprocess.run(
-                ["lsblk", "-d", "-J", "-o", "NAME,PATH,SIZE,TYPE"],
+                ["lsblk", "-d", "-J", "-o", "NAME,PATH,TYPE"],
                 capture_output=True,
                 text=True,
                 timeout=10,
@@ -221,11 +312,16 @@ class DiskManager:
                     continue
 
                 try:
-                    size_str = device.get("size", "0")
-                    size_bytes = DiskManager._parse_size(size_str)
+                    path = device["path"]
+                    # Use blockdev to get true physical disk size
+                    size_bytes = DiskManager._get_disk_size_bytes(path)
+                    if size_bytes <= 0:
+                        logger.warning(f"Could not determine size for {device['name']}")
+                        continue
+                        
                     disk = DiskInfo(
                         name=device["name"],
-                        path=device["path"],
+                        path=path,
                         size_bytes=size_bytes
                     )
                     disks.append(disk)
@@ -239,6 +335,28 @@ class DiskManager:
         except Exception as e:
             logger.error(f"Error discovering disks: {e}")
             return []
+        
+
+    @staticmethod
+    def _get_disk_size_bytes(path: str) -> int:
+        """Get true physical disk size from /sys/block."""
+        try:
+            # Extract disk name from path (e.g., /dev/sda → sda)
+            disk_name = Path(path).name
+            size_file = Path("/sys/block") / disk_name / "size"
+            
+            if not size_file.exists():
+                logger.debug(f"Size file not found for {path}")
+                return 0
+                
+            # Read sectors and multiply by 512 bytes per sector
+            sectors = int(size_file.read_text().strip())
+            size_bytes = sectors * 512
+            logger.debug(f"Got {disk_name} size: {size_bytes} bytes")
+            return size_bytes
+        except Exception as e:
+            logger.debug(f"Failed to read size for {path}: {e}")
+            return 0
 
     @staticmethod
     def _parse_size(size_str: str) -> int:
@@ -479,6 +597,52 @@ class MountManager:
 # ============================================================================
 class DiskOperationHandler:
     """Handles disk read/write/clone operations."""
+    
+    def __init__(
+        self,
+        source: str,
+        destination: str,
+        block_size: str = "4M",
+        operation_type: 'OperationType' = None,
+        progress_callback: Optional[Callable[[int, int], None]] = None,
+        cancel_event: Optional[threading.Event] = None
+    ):
+        """Initialize disk operation handler."""
+        self.source = source
+        self.destination = destination
+        self.block_size = block_size
+        self.operation_type = operation_type
+        self.progress_callback = progress_callback
+        self.cancel_event = cancel_event or threading.Event()
+
+    def execute(self) -> Tuple[bool, str]:
+        """Execute the operation based on operation_type."""
+        if self.operation_type == OperationType.READ:
+            return self.read_disk_to_image(
+                self.source,
+                self.destination,
+                self.block_size,
+                self.progress_callback,
+                self.cancel_event
+            )
+        elif self.operation_type == OperationType.WRITE:
+            return self.write_image_to_disk(
+                self.source,
+                self.destination,
+                self.block_size,
+                self.progress_callback,
+                self.cancel_event
+            )
+        elif self.operation_type == OperationType.CLONE:
+            return self.clone_disk(
+                self.source,
+                self.destination,
+                self.block_size,
+                self.progress_callback,
+                self.cancel_event
+            )
+        else:
+            return False, "Unknown operation type"
 
     @staticmethod
     def read_disk_to_image(
@@ -490,9 +654,16 @@ class DiskOperationHandler:
     ) -> Tuple[bool, str]:
         """Read disk to image file."""
         try:
+            # Ensure disk_path has /dev/ prefix
+            if not disk_path.startswith('/dev/'):
+                disk_path = f'/dev/{disk_path}'
+            
+            
             disk_size = DiskManager.get_disk_size_bytes(disk_path)
             if disk_size <= 0:
                 return False, "Could not determine disk size"
+
+            logger.info(f"Reading {disk_path} ({disk_size} bytes) to {image_path}")
 
             cmd = [
                 "sudo", "dd",
@@ -506,32 +677,49 @@ class DiskOperationHandler:
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True
+                text=True,
+                bufsize=1  # Line buffering
             )
 
             bytes_read = 0
-            for line in process.stderr:
-                if cancel_event and cancel_event.is_set():
-                    process.terminate()
-                    return False, "Operation cancelled by user"
+            try:
+                for line in process.stderr:
+                    if cancel_event and cancel_event.is_set():
+                        process.terminate()
+                        process.wait()
+                        return False, "Operation cancelled by user"
 
-                try:
-                    bytes_read = int(line.split()[0])
-                    if progress_callback:
-                        progress_callback(bytes_read, disk_size)
-                except (ValueError, IndexError):
-                    continue
+                    line = line.strip()
+                    if line:
+                        logger.debug(f"dd progress: {line}")
+                        try:
+                            bytes_read = int(line.split()[0])
+                            if progress_callback:
+                                progress_callback(bytes_read, disk_size)
+                        except (ValueError, IndexError):
+                            pass
 
-            process.wait()
-            if process.returncode == 0:
+            except Exception as e:
+                logger.warning(f"Error reading progress: {e}")
+
+            # Wait for process to complete
+            returncode = process.wait()
+            
+            logger.info(f"dd process exited with code: {returncode}")
+            logger.info(f"Final bytes read: {bytes_read}, Expected: {disk_size}")
+
+            if returncode == 0:
                 logger.info(f"Successfully read {disk_path} to {image_path}")
                 return True, "Read successful"
             else:
-                return False, "dd command failed"
+                stderr_output = process.stderr.read() if process.stderr else "No error message"
+                logger.error(f"dd command failed with code {returncode}: {stderr_output}")
+                return False, f"dd command failed with code {returncode}"
 
         except Exception as e:
-            logger.error(f"Error reading disk: {e}")
+            logger.error(f"Error reading disk: {e}", exc_info=True)
             return False, str(e)
+
 
     @staticmethod
     def write_image_to_disk(
@@ -543,9 +731,14 @@ class DiskOperationHandler:
     ) -> Tuple[bool, str]:
         """Write image to disk."""
         try:
+            if not image_path.startswith('/dev/'):
+                image_path = f'/dev/{image_path}'
+            
             image_size = os.path.getsize(image_path)
             if image_size <= 0:
                 return False, "Image file is empty or not found"
+
+            logger.info(f"Writing {image_path} ({image_size} bytes) to {disk_path}")
 
             cmd = [
                 "sudo", "dd",
@@ -559,34 +752,53 @@ class DiskOperationHandler:
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True
+                text=True,
+                bufsize=1  # Line buffering
             )
 
             bytes_written = 0
-            for line in process.stderr:
-                if cancel_event and cancel_event.is_set():
-                    process.terminate()
-                    return False, "Operation cancelled by user"
+            try:
+                for line in process.stderr:
+                    if cancel_event and cancel_event.is_set():
+                        process.terminate()
+                        process.wait()
+                        return False, "Operation cancelled by user"
 
-                try:
-                    bytes_written = int(line.split()[0])
-                    if progress_callback:
-                        progress_callback(bytes_written, image_size)
-                except (ValueError, IndexError):
-                    continue
+                    line = line.strip()
+                    if line:
+                        logger.debug(f"dd progress: {line}")
+                        try:
+                            bytes_written = int(line.split()[0])
+                            if progress_callback:
+                                progress_callback(bytes_written, image_size)
+                        except (ValueError, IndexError):
+                            pass
 
-            process.wait()
-            subprocess.run(["sudo", "sync"], check=False)
+            except Exception as e:
+                logger.warning(f"Error reading progress: {e}")
+
+            # Wait for process to complete
+            returncode = process.wait()
             
-            if process.returncode == 0:
+            logger.info(f"dd process exited with code: {returncode}")
+            logger.info(f"Final bytes written: {bytes_written}, Expected: {image_size}")
+
+            # Sync filesystem
+            logger.info("Running sync to ensure data is written...")
+            subprocess.run(["sudo", "sync"], check=False)
+
+            if returncode == 0:
                 logger.info(f"Successfully wrote {image_path} to {disk_path}")
                 return True, "Write successful"
             else:
-                return False, "dd command failed"
+                stderr_output = process.stderr.read() if process.stderr else "No error message"
+                logger.error(f"dd command failed with code {returncode}: {stderr_output}")
+                return False, f"dd command failed with code {returncode}"
 
         except Exception as e:
-            logger.error(f"Error writing image: {e}")
+            logger.error(f"Error writing image: {e}", exc_info=True)
             return False, str(e)
+
 
     @staticmethod
     def clone_disk(
@@ -995,7 +1207,7 @@ class DiskImagerApp:
             disks = self.disk_manager.discover_disks()
             logger.info(f"Discovered {len(disks)} disks")
             for disk in disks:
-                disk_row = [disk.name, "", disk.size_human]
+                disk_row = [disk.name, disk.filesystem_size_human, disk.size_human]
                 logger.debug(f"Appending disk row: {disk_row} (length: {len(disk_row)})")
                 try:
                     model.append(disk_row)
@@ -1799,21 +2011,26 @@ class DiskImagerApp:
                 progress_callback=self._update_progress
             )
             
-            disk_handler.execute()
+            success, message = disk_handler.execute()
             
-            if not self.operation_stopped:
+            if success and not self.operation_stopped:
                 GLib.idle_add(
                     lambda: self._show_status(
                         f"Successfully read {self.state.selected_disk} to {self.state.image_path}",
                         True
                     )
                 )
+
+            elif not success:
+                error_msg = message
+                GLib.idle_add(lambda msg=error_msg: self._show_error(f"Read operation failed: {msg}"))
             
             logger.info("Read operation completed successfully")
         
         except Exception as e:
-            logger.error(f"Read operation failed: {e}")
-            GLib.idle_add(lambda: self._show_error(f"Read operation failed: {e}"))
+            logger.error(f"Read operation failed: {e}", exc_info=True)
+            error_msg = str(e)
+            GLib.idle_add(lambda msg=error_msg: self._show_error(f"Read operation failed: {msg}"))
         
         finally:
             self.is_operating = False
@@ -2001,19 +2218,34 @@ class DiskImagerApp:
         dialog.destroy()
         return response
 
-    def _update_progress(self, bytes_done: int, total_bytes: int, status: str) -> None:
-        """Update progress bar and status label."""
-        if total_bytes > 0:
-            fraction = bytes_done / total_bytes
-            progress_bar = self.builder.get_object("imageProgressBar")
-            if progress_bar:
-                GLib.idle_add(lambda: progress_bar.set_fraction(fraction))
+    def _update_progress(self, bytes_done: int, bytes_total: int) -> None:
+        """Update progress bar and percentage text."""
+        if bytes_total <= 0:
+            return
         
-        percentage = int((bytes_done / total_bytes) * 100) if total_bytes > 0 else 0
-        status_label = self.builder.get_object("diskImageProgressPercentageLabel")
-        if status_label:
-            GLib.idle_add(lambda: status_label.set_text(f"{status} {percentage}%"))
+        percentage = (bytes_done / bytes_total) * 100
+        
+        GLib.idle_add(
+            self._update_progress_ui,
+            percentage,
+            bytes_done,
+            bytes_total
+        )
 
+    def _update_progress_ui(self, percentage: float, bytes_done: int, bytes_total: int) -> False:
+        """Update GTK widgets (runs in main thread)."""
+        try:
+            if self.progress_bar:
+                self.progress_bar.set_fraction(percentage / 100.0)
+            
+            if self.percentage_label:
+                self.percentage_label.set_text(f"{percentage:.1f}%")
+            
+            return False
+        except Exception as e:
+            logger.error(f"Failed to update progress UI: {e}")
+            return False
+        
     def _update_verify_progress(self, bytes_done: int, total_bytes: int, status: str) -> None:
         """Update verification progress."""
         self._update_progress(bytes_done, total_bytes, status)
@@ -2076,6 +2308,7 @@ class DiskImagerApp:
 # APPLICATION ENTRY POINT
 # ============================================================================
 if __name__ == "__main__":
+    #ensure_elevated_privileges()
     app = DiskImagerApp()
     app.run()
 
