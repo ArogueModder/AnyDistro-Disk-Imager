@@ -695,7 +695,7 @@ class DiskOperationHandler:
                         try:
                             bytes_read = int(line.split()[0])
                             if progress_callback:
-                                progress_callback(bytes_read, disk_size)
+                                progress_callback(bytes_read, disk_size, line)
                         except (ValueError, IndexError):
                             pass
 
@@ -726,13 +726,14 @@ class DiskOperationHandler:
         image_path: str,
         disk_path: str,
         block_size: str = "4M",
-        progress_callback: Optional[Callable[[int, int], None]] = None,
+        progress_callback: Optional[Callable[[int, int, str], None]] = None,  # ← Updated type hint
         cancel_event: Optional[threading.Event] = None
     ) -> Tuple[bool, str]:
         """Write image to disk."""
         try:
-            if not image_path.startswith('/dev/'):
-                image_path = f'/dev/{image_path}'
+            # Ensure disk_path has /dev/ prefix
+            if not disk_path.startswith('/dev/'):
+                disk_path = f'/dev/{disk_path}'
             
             image_size = os.path.getsize(image_path)
             if image_size <= 0:
@@ -770,7 +771,7 @@ class DiskOperationHandler:
                         try:
                             bytes_written = int(line.split()[0])
                             if progress_callback:
-                                progress_callback(bytes_written, image_size)
+                                progress_callback(bytes_written, image_size, line)  # ← Pass raw line here
                         except (ValueError, IndexError):
                             pass
 
@@ -798,6 +799,32 @@ class DiskOperationHandler:
         except Exception as e:
             logger.error(f"Error writing image: {e}", exc_info=True)
             return False, str(e)
+
+
+    @staticmethod
+    def hash_file(file_path: str, progress_callback: Optional[Callable[[int, int, str], None]] = None) -> str:
+        """Compute SHA256 hash of a file or disk device."""
+        try:
+            h = hashlib.sha256()
+            total_size = os.path.getsize(file_path) if os.path.isfile(file_path) else os.path.getsize(f"/sys/block/{Path(file_path).name}/size") * 512
+            bytes_read = 0
+            
+            with open(file_path, "rb") as f:
+                while True:
+                    chunk = f.read(8192)  # CHUNK = 8192
+                    if not chunk:
+                        break
+                    h.update(chunk)
+                    bytes_read += len(chunk)
+                    if progress_callback:
+                        progress_callback(bytes_read, total_size, f"Hashing: {file_path}")
+            
+            return h.hexdigest()
+        except Exception as e:
+            logger.error(f"Error computing hash: {e}", exc_info=True)
+            raise
+
+
 
 
     @staticmethod
@@ -969,7 +996,8 @@ class DiskImagerApp:
         
         # Cache common widgets for quick access
         self.progress_bar = self.builder.get_object("imageProgressBar")
-        self.status_label = self.builder.get_object("diskImageProgressPercentageLabel")
+        self.percentage_label = self.builder.get_object("diskImageProgressPercentageLabel")
+        self.progress_bar = self.builder.get_object("imageProgressBar")
         self.image_entry = self.builder.get_object("imageFileText")
         
         # Initialize state and managers
@@ -1150,6 +1178,41 @@ class DiskImagerApp:
             logger.debug(f"Entry not found: {entry_id}")
 
 
+    def _verify_operation(self, image_path: str, disk_path: str) -> Tuple[bool, str]:
+        """Verify read/write by comparing hashes (runs in background thread)."""
+        try:
+            logger.info("Starting verification...")
+            self.progress_bar.set_fraction(0.0)
+            
+            # Hash the image (0-50% of progress)
+            def image_progress(read, total, msg):
+                fraction = (read / total) * 0.5 if total else 0
+                GLib.idle_add(lambda: self.progress_bar.set_fraction(fraction))
+                GLib.idle_add(lambda: self.progress_bar.set_text(msg))
+            
+            image_hash = DiskOperationHandler.hash_file(image_path, image_progress)
+            
+            # Hash the disk (50-100% of progress)
+            def disk_progress(read, total, msg):
+                fraction = 0.5 + (read / total) * 0.5 if total else 0.5
+                GLib.idle_add(lambda: self.progress_bar.set_fraction(fraction))
+                GLib.idle_add(lambda: self.progress_bar.set_text(msg))
+            
+            disk_hash = DiskOperationHandler.hash_file(disk_path, disk_progress)
+            
+            # Compare hashes
+            if image_hash == disk_hash:
+                logger.info("Verification successful - hashes match")
+                GLib.idle_add(lambda: self.progress_bar.set_text("Read/Write/Verify Successful"))
+                GLib.idle_add(lambda: self.progress_bar.set_fraction(1.0))
+                return True, "Verification successful"
+            else:
+                logger.error(f"Verification failed - hash mismatch\nImage: {image_hash}\nDisk: {disk_hash}")
+                GLib.idle_add(lambda: self.progress_bar.set_text("Verify Failed"))
+                return False, "Hash mismatch"
+        except Exception as e:
+            logger.error(f"Verification error: {e}", exc_info=True)
+            return False, str(e)
 
 
     def refresh_disks(self) -> None:
@@ -1433,16 +1496,45 @@ class DiskImagerApp:
 
             self.state.reset_process_state()
 
-    def _update_progress(self, current: int, total: int) -> None:
-        """Update progress bar during read/write operations."""
-        if total <= 0:
-            return
-        fraction = min(1.0, current / total)
-        human_current = DiskInfo._format_bytes(current)
-        human_total = DiskInfo._format_bytes(total)
-        text = f"{human_current} / {human_total}"
-        GLib.idle_add(self.progress_bar.set_fraction, fraction)
-        GLib.idle_add(self.progress_bar.set_text, text)
+    def format_bytes(self, n, base=1000, units=None):
+        """Format bytes into human-readable format."""
+        n = float(n)
+        if units is None:
+            units = ['B','KiB','MiB','GiB','TiB','PiB'] if base==1024 else ['B','K','M','G','T','P']
+        for unit in units:
+            if abs(n) < base or unit == units[-1]:
+                return f"{n:.1f}{unit}"
+            n /= base
+
+    def _update_progress(self, bytes_current: int, bytes_total: int, raw_dd_line: str):
+        percentage = (bytes_current / bytes_total * 100) if bytes_total > 0 else 0
+        GLib.idle_add(lambda: self.percentage_label.set_text(f"{percentage:.1f}%"))
+        GLib.idle_add(lambda: self.progress_bar.set_text(raw_dd_line))
+        GLib.idle_add(lambda: self.progress_bar.set_fraction(bytes_current / bytes_total))
+
+
+    def _handle_operation_completion(self, success: bool, message: str, operation_type: str, image_path: str = None, disk_path: str = None):
+        """Handle operation completion and trigger verification."""
+        if success:
+            logger.info(f"{operation_type} completed successfully")
+            
+            # Start verification in background thread
+            if operation_type == "read":
+                verify_thread = threading.Thread(
+                    target=self._verify_operation,
+                    args=(image_path, disk_path),
+                    daemon=True
+                )
+                verify_thread.start()
+            elif operation_type == "write":
+                verify_thread = threading.Thread(
+                    target=self._verify_operation,
+                    args=(image_path, disk_path),
+                    daemon=True
+                )
+                verify_thread.start()
+
+        
 
     def _update_verify_progress(self, current: int, total: int, status: str) -> None:
         """Update progress during verify operations."""
@@ -2218,19 +2310,7 @@ class DiskImagerApp:
         dialog.destroy()
         return response
 
-    def _update_progress(self, bytes_done: int, bytes_total: int) -> None:
-        """Update progress bar and percentage text."""
-        if bytes_total <= 0:
-            return
-        
-        percentage = (bytes_done / bytes_total) * 100
-        
-        GLib.idle_add(
-            self._update_progress_ui,
-            percentage,
-            bytes_done,
-            bytes_total
-        )
+    
 
     def _update_progress_ui(self, percentage: float, bytes_done: int, bytes_total: int) -> False:
         """Update GTK widgets (runs in main thread)."""
