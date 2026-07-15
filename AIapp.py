@@ -229,6 +229,9 @@ class AppState:
     operation_cancelled: bool = False
     readonly_mode: bool = False
 
+    # Track partition info for later remounting
+    discovered_partitions: List[PartitionInfo] = field(default_factory=list)
+
     def __init__(self):
         # Page 1: Read/Write
         self.selected_disk: str = ""
@@ -1008,7 +1011,32 @@ class DiskImagerApp:
         # Operation flags
         self.is_operating = False
         self.operation_stopped = False
+
+        # ===== PAGE 1: READ/WRITE OPTIONS =====
+    
+        # Block Size ComboBox
+        self.combo_block_size = self.builder.get_object("SelectedBlockSize")
+        if self.combo_block_size:
+            # Populate with predefined block sizes
+            list_store = Gtk.ListStore(str)
+            for bs in BLOCK_SIZES:
+                list_store.append([bs])
+            self.combo_block_size.set_model(list_store)
+            self.combo_block_size.set_active(0)  # Default to 4M
+            self.combo_block_size.connect("changed", self.on_block_size_changed)
         
+        # Disable Automount Checkbox
+        self.check_disable_automount = self.builder.get_object("OptionDisableAutomounter")
+        if self.check_disable_automount:
+            self.check_disable_automount.set_active(False)
+            self.check_disable_automount.connect("toggled", self.on_disable_automount_toggled)
+        
+        # Unmount and Remount Checkbox
+        self.check_unmount_remount = self.builder.get_object("OptionUnmountandRemount")
+        if self.check_unmount_remount:
+            self.check_unmount_remount.set_active(False)
+            self.check_unmount_remount.connect("toggled", self.on_unmount_remount_toggled)
+            
         # ===== INITIALIZE COMBOBOX WITH GLADE LISTSTORE =====
         # Initialize diskSelectCombo with existing liststore1 from Glade
         disk_combo = self.builder.get_object("diskSelectCombo")
@@ -1388,17 +1416,111 @@ class DiskImagerApp:
             self.image_entry.set_text(filename)
         dialog.destroy()
 
-    def on_read_clicked(self, widget) -> None:
-        """Handle read disk button."""
-        if not self._validate_read_operation():
-            return
-        self._start_operation(OperationType.READ)
 
-    def on_write_clicked(self, widget) -> None:
-        """Handle write image button."""
-        if not self._validate_write_operation():
-            return
-        self._start_operation(OperationType.WRITE)
+    def _prepare_disk_operation(self, disk_path: str) -> bool:
+        """Prepare disk for operation (unmount/disable automount).
+        
+        Returns True if successful, False if user should cancel.
+        """
+        logger.info(f"Preparing disk {disk_path} for operation...")
+        
+        # Discover partitions on selected disk
+        self.state.discovered_partitions = DiskManager.discover_partitions(disk_path)
+        logger.debug(f"Discovered {len(self.state.discovered_partitions)} partitions")
+        
+        # Unmount partitions if option is enabled
+        if self.state.unmount_and_remount:
+            logger.info("Unmounting partitions...")
+            success = MountManager.unmount_partitions(self.state.discovered_partitions)
+            
+            # If normal unmount fails, try force unmount
+            if not success:
+                logger.warning("Normal unmount failed, attempting force unmount...")
+                MountManager.force_unmount_partitions(self.state.discovered_partitions)
+            
+            # Verify no mounts remain
+            if not self._verify_no_mounts(disk_path, timeout=10):
+                logger.error("Could not unmount all partitions!")
+                self._show_error_dialog("Mount Error", 
+                    "Could not unmount all partitions. Operation may fail.")
+                return False
+        
+        # Stop automount services if option is enabled
+        if self.state.disable_automount:
+            logger.info("Stopping automount services...")
+            stopped, success = MountManager.stop_automount_services()
+            self.state.stopped_services = stopped
+            
+            if stopped:
+                logger.info(f"Stopped services: {', '.join(stopped)}")
+            
+            # Also kill automount processes
+            killed, success = MountManager.kill_automount_processes()
+            if killed:
+                logger.info(f"Killed processes: {', '.join(killed)}")
+        
+        return True
+
+    def _verify_no_mounts(self, disk_path: str, timeout: int = 10) -> bool:
+        """Verify that disk has no mounted partitions."""
+        end_time = time.time() + timeout
+        
+        while time.time() < end_time:
+            partitions = DiskManager.discover_partitions(disk_path)
+            mounted = any(p.is_mounted() for p in partitions)
+            
+            if not mounted:
+                logger.info(f"Verified: no partitions mounted on {disk_path}")
+                return True
+            
+            time.sleep(0.5)
+        
+        logger.warning(f"Timeout: partitions still mounted on {disk_path}")
+        return False
+
+    def _cleanup_after_operation(self):
+        """Clean up after operation completes (remount/restart services)."""
+        logger.info("Cleaning up after operation...")
+        
+        # Remount partitions if they were unmounted
+        if self.state.unmount_and_remount:
+            logger.info("Remounting partitions...")
+            success = MountManager.remount_partitions(self.state.discovered_partitions)
+            if success:
+                logger.info("Successfully remounted partitions")
+            else:
+                logger.warning("Some partitions failed to remount")
+        
+        # Restart automount services if they were stopped
+        if self.state.disable_automount and self.state.stopped_services:
+            logger.info("Restarting automount services...")
+            success = MountManager.start_automount_services(self.state.stopped_services)
+            if success:
+                logger.info("Successfully restarted services")
+            else:
+                logger.warning("Some services failed to restart")
+        
+        # Clear state
+        self.state.discovered_partitions = []
+        self.state.stopped_services = []
+
+
+
+
+
+
+
+    #def on_read_clicked(self, widget) -> None:
+        #"""Handle read disk button."""
+        #if not self._validate_read_operation():
+        #    return
+        #self._start_operation(OperationType.READ)
+
+    #def on_write_clicked(self, widget) -> None:
+       # """Handle write image button."""
+       # if not self._validate_write_operation():
+          #  return
+        #self._start_operation(OperationType.WRITE)
 
     def on_clone_clicked(self, widget) -> None:
         """Handle clone disk button."""
@@ -1417,17 +1539,27 @@ class DiskImagerApp:
         self.state.operation_cancelled = True
 
 
-    def on_block_size_changed(self, widget) -> None:
-        """Handle block size combo change."""
-        active_text = widget.get_active_text()
-        if active_text:
-            self.state.block_size = active_text
-            logger.debug(f"Block size changed to: {self.state.block_size}")
+    def on_block_size_changed(self, combo):
+        """Handle block size selection change."""
+        active_iter = combo.get_active_iter()
+        if active_iter is not None:
+            model = combo.get_model()
+            self.state.block_size = model[active_iter][0]
+            logger.info(f"Block size selected: {self.state.block_size}")
 
-    def on_automount_toggled(self, widget) -> None:
-        """Handle automount checkbox toggle."""
-        self.state.disable_automount = widget.get_active()
-        logger.debug(f"Automount disabled: {self.state.disable_automount}")
+    def on_disable_automount_toggled(self, checkbox):
+        """Handle disable automount checkbox toggle."""
+        self.state.disable_automount = checkbox.get_active()
+        status = "enabled" if self.state.disable_automount else "disabled"
+        logger.info(f"Disable automount: {status}")
+
+    def on_unmount_remount_toggled(self, checkbox):
+        """Handle unmount/remount checkbox toggle."""
+        self.state.unmount_and_remount = checkbox.get_active()
+        status = "enabled" if self.state.unmount_and_remount else "disabled"
+        logger.info(f"Unmount/remount: {status}")
+
+
 
     def _show_error(self, message: str) -> None:
         """Display an error dialog."""
@@ -1491,15 +1623,15 @@ class DiskImagerApp:
             return False
         return True
 
-    def _start_operation(self, op_type: OperationType) -> None:
-        """Start a disk operation in a background thread."""
-        self.state.operation_cancelled = False
-        thread = threading.Thread(
-            target=self._execute_operation,
-            args=(op_type,),
-            daemon=True
-        )
-        thread.start()
+   # def _start_operation(self, op_type: OperationType) -> None:
+       # """Start a disk operation in a background thread."""
+      #  self.state.operation_cancelled = False
+      #  thread = threading.Thread(
+      ##      target=self._execute_operation,
+       #     args=(op_type,),
+       #     daemon=True
+       # )
+       # thread.start()
 
     def _execute_operation(self, op_type: OperationType) -> None:
         """Execute disk operation."""
@@ -1663,10 +1795,6 @@ class DiskImagerApp:
         Gtk.main()
     
         # Dialog and checkbox handlers
-    def on_block_size_changed(self, widget) -> None:
-        """Handle block size combo change."""
-        self.state.block_size = widget.get_active_text()
-        logger.debug(f"Block size changed to: {self.state.block_size}")
 
     def on_automount_toggled(self, widget) -> None:
         """Handle automount checkbox toggle."""
@@ -1698,12 +1826,7 @@ class DiskImagerApp:
         self.state.image_path = widget.get_text()
         logger.debug(f"Image path: {self.state.image_path}")
 
-    def on_block_size_changed(self, widget) -> None:
-        """Handle block size combo change (Page 1)."""
-        active_text = widget.get_active_text()
-        if active_text:
-            self.state.block_size = active_text
-            logger.debug(f"Block size changed to: {self.state.block_size}")
+    
 
     def on_automount_toggled(self, widget) -> None:
         """Handle automount checkbox toggle (Page 1)."""
@@ -2153,6 +2276,16 @@ class DiskImagerApp:
         
         self.is_operating = True
         self.operation_stopped = False
+
+        # Unmount partitions if requested (NEW - Step 4)
+        if self.state.unmount_and_remount:
+            logger.info(f"Unmounting partitions on {self.state.selected_disk}...")
+            if not self.mount_manager.unmount_disk(self.state.selected_disk):
+                self._show_error("Mount Error", f"Failed to unmount {self.state.selected_disk}")
+                self.is_operating = False
+                return
+
+
         
         # Disable automount if requested
         if self.state.disable_automount:
