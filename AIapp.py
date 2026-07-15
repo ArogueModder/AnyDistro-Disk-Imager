@@ -241,10 +241,11 @@ class AppState:
         self.unmount_and_remount: bool = False
         
         # Page 2: Verify
-        self.verify_disk: str = ""
-        self.verify_image_path: str = ""
-        self.hash_algorithm_disk: str = "SHA256"
-        self.hash_algorithm_image: str = "SHA256"
+        verify_disk: Optional[str] = None
+        verify_image_path: Optional[str] = None
+        verify_disk_actual_size: int = 0
+        hash_algorithm_disk: str = "SHA256"
+        hash_algorithm_image: str = "SHA256"
         
         # Page 3: Clone
         self.clone_source: str = ""
@@ -1073,24 +1074,93 @@ class DiskImagerApp:
         
         # Connect all signals
         self.connect_signals()
-        
-        # Load initial disk list
-        logger.info("Calling on_refresh_disks()")
-        self.on_refresh_disks(None)
-        
-        # Set window icon if available
-        icon_path = Path(__file__).parent / "DiskImager.ico"
-        if icon_path.exists():
-            try:
-                self.window.set_icon_from_file(str(icon_path))
-            except:
-                pass
-        
-        # Connect window destroy signal
-        self.window.connect("destroy", self.on_window_destroy)
-        
-        # Show window
-        self.window.show_all()
+
+#========================================================================
+    # PAGE 2: VERIFY TAB SETUP
+    # ========================================================================
+    
+            # Get the shared liststore from Page 1 (disk list)
+        liststore_disks = self.builder.get_object("liststore1")
+            
+            # Setup verifydiskcombobox with the disk liststore
+        self.combo_box_verify_disk = self.builder.get_object("verifydiskcombobox")
+        if self.combo_box_verify_disk:
+            self.combo_box_verify_disk.clear()
+            self.combo_box_verify_disk.set_model(liststore_disks)
+                
+                # Create and pack renderers (same as Page 1)
+            renderer1 = Gtk.CellRendererText()
+            renderer1.props.alignment = Pango.Alignment.LEFT
+            self.combo_box_verify_disk.pack_start(renderer1, True)
+            self.combo_box_verify_disk.add_attribute(renderer1, "text", 0)  # Disk name
+                
+            renderer2 = Gtk.CellRendererText()
+            renderer2.props.alignment = Pango.Alignment.LEFT
+            self.combo_box_verify_disk.pack_start(renderer2, True)
+            self.combo_box_verify_disk.add_attribute(renderer2, "text", 1)  # Filesystem size
+                
+            renderer3 = Gtk.CellRendererText()
+            renderer3.props.alignment = Pango.Alignment.LEFT
+            self.combo_box_verify_disk.pack_start(renderer3, True)
+            self.combo_box_verify_disk.add_attribute(renderer3, "text", 2)  # Total size
+                
+            self.combo_box_verify_disk.set_active(0)
+            
+            # Setup checksumCombobox2 with liststore3
+        liststore_hash = self.builder.get_object("liststore3")
+        self.combo_box_verify_hash2 = self.builder.get_object("checksumCombobox2")
+        if self.combo_box_verify_hash2 and liststore_hash:
+            self.combo_box_verify_hash2.clear()
+            self.combo_box_verify_hash2.set_model(liststore_hash)
+                
+                # Create and pack renderer
+            renderer_hash = Gtk.CellRendererText()
+            renderer_hash.props.alignment = Pango.Alignment.LEFT
+            self.combo_box_verify_hash2.pack_start(renderer_hash, True)
+            self.combo_box_verify_hash2.add_attribute(renderer_hash, "text", 0)
+                
+            self.combo_box_verify_hash2.set_active(2)  # Default to SHA256
+            
+            # Get UI elements
+            self.entry_verify_image = self.builder.get_object("imageverifyentry")
+            self.entry_checksum_output = self.builder.get_object("ChecksumOutputEntry")
+            self.progress_bar_verify = self.builder.get_object("verifyProgressBar")
+
+        # Setup checksumCombobox1 with liststore3 (verify disk hash type)
+        liststore_hash = self.builder.get_object("liststore3")
+        self.combo_box_verify_hash1 = self.builder.get_object("checksumCombobox1")
+        if self.combo_box_verify_hash1 and liststore_hash:
+            self.combo_box_verify_hash1.clear()  # Clear any existing renderers
+            self.combo_box_verify_hash1.set_model(liststore_hash)
+            
+            # Create and pack renderer
+            renderer_hash = Gtk.CellRendererText()
+            renderer_hash.props.alignment = Pango.Alignment.LEFT
+            self.combo_box_verify_hash1.pack_start(renderer_hash, True)
+            self.combo_box_verify_hash1.add_attribute(renderer_hash, "text", 0)
+            
+            self.combo_box_verify_hash1.set_active(2)  # Default to SHA256
+
+
+
+                
+                # Load initial disk list
+            logger.info("Calling on_refresh_disks()")
+            self.on_refresh_disks(None)
+                
+                # Set window icon if available
+            icon_path = Path(__file__).parent / "DiskImager.ico"
+            if icon_path.exists():
+                try:
+                    self.window.set_icon_from_file(str(icon_path))
+                except:
+                    pass
+                
+                # Connect window destroy signal
+            self.window.connect("destroy", self.on_window_destroy)
+                
+                # Show window
+            self.window.show_all()
 
 
     def setup_ui(self) -> None:
@@ -2042,7 +2112,7 @@ class DiskImagerApp:
         response = dialog.run()
         if response == Gtk.ResponseType.ACCEPT:
             filename = dialog.get_filename()
-            self.app_state.verify_image_path = filename
+            self.state.verify_image_path = filename
             image_entry = self.builder.get_object("imageverifyentry")
             if image_entry:
                 image_entry.set_text(filename)
@@ -2079,6 +2149,235 @@ class DiskImagerApp:
         """Handler for image path entry changes in verify tab."""
         self.app_state.verify_image_path = widget.get_text()
         logger.debug(f"Verify image path changed to: {self.app_state.verify_image_path}")
+
+
+  # PAGE 2: VERIFY HANDLERS
+    # ========================================================================
+    
+    def on_verifydiskcombobox_changed(self, combo):
+        """Handle disk selection in verify tab."""
+        try:
+            active_iter = combo.get_active_iter()
+            if active_iter is None:
+                self.state.verify_disk = None
+                return
+            
+            model = combo.get_model()
+            selected_disk = model.get_value(active_iter, 0)
+            self.state.verify_disk = "/dev/" + selected_disk
+            print(f"Selected verify disk: {self.state.verify_disk}")
+        except Exception as e:
+            print(f"Error in on_verifydiskcombobox_changed: {e}")
+    
+    def on_checksumCombobox1_changed(self, combo):
+        """Handle hash algorithm selection for disk."""
+        try:
+            active_iter = combo.get_active_iter()
+            if active_iter is None:
+                return
+            
+            model = combo.get_model()
+            algorithm = model.get_value(active_iter, 0)
+            self.state.hash_algorithm_disk = algorithm
+            print(f"Selected disk hash algorithm: {algorithm}")
+        except Exception as e:
+            print(f"Error in on_checksumCombobox1_changed: {e}")
+    
+    def on_checksumCombobox2_changed(self, combo):
+        """Handle hash algorithm selection for image."""
+        try:
+            active_iter = combo.get_active_iter()
+            if active_iter is None:
+                return
+            
+            model = combo.get_model()
+            algorithm = model.get_value(active_iter, 0)
+            self.state.hash_algorithm_image = algorithm
+            print(f"Selected image hash algorithm: {algorithm}")
+        except Exception as e:
+            print(f"Error in on_checksumCombobox2_changed: {e}")
+    
+    def on_refreshDiskButton1_clicked(self, widget):
+        """Refresh disk list in verify tab."""
+        try:
+            print("Refreshing disk list for verify tab")
+            combo_box5 = self.builder.get_object("verifydiskcombobox")
+            
+            if not combo_box5:
+                return
+            
+            # Get the list store
+            listStore = combo_box5.get_model()
+            if listStore:
+                listStore.clear()
+                listStore.append(['Select Disk', ' File System Size', 'Total Disk Size'])
+                
+                # Get disk list
+                resultdisk = subprocess.run(['lsblk', '-d', '-n', '-o', 'NAME'], 
+                                          capture_output=True, text=True)
+                resultdisksize = subprocess.run(['lsblk', '-d', '-n', '-o', 'SIZE'], 
+                                              capture_output=True, text=True)
+                
+                disksplitname = resultdisk.stdout.split()
+                disksplitsize = resultdisksize.stdout.split()
+                
+                resultsplittotalsize = []
+                for n in disksplitname:
+                    tds = self.get_disk_size(n)
+                    tdf = self.format_bytes(tds)
+                    resultsplittotalsize.append(str(tdf))
+                
+                newtotal = resultsplittotalsize
+                for n, s, t in zip(disksplitname, disksplitsize, newtotal):
+                    listStore.append([n, ' ' + s, t])
+                
+                combo_box5.set_active(0)
+        except Exception as e:
+            print(f"Error refreshing disk list: {e}")
+    
+    def on_openimageButton2_clicked(self, widget):
+        """Browse for image file in verify tab."""
+        dialog = Gtk.FileChooserDialog(
+            "Open Image File",
+            self.window,
+            Gtk.FileChooserAction.OPEN
+        )
+        
+        dialog.add_button(Gtk.STOCK_CANCEL, -6)
+        dialog.add_button(Gtk.STOCK_OPEN, -3)
+        
+        try:
+            response = dialog.run()
+            print(f"Response: {response}")
+            
+            if response == -3:
+                filename = dialog.get_filename()
+                print(f"File selected: {filename}")
+                self.state.verify_image_path = filename  # ← Use self.state, not self.app_state
+                
+                if self.entry_verify_image:
+                    self.entry_verify_image.set_text(filename)
+        
+        finally:
+            dialog.destroy()
+
+
+
+    def on_generateChecksumDiskButton_clicked(self, button):
+        """Generate hash for selected disk."""
+        try:
+            print("Checksum Disk Button Clicked")
+            
+            if not self.state.verify_disk:
+                print("No disk selected")
+                return
+            
+            path = Path(self.state.verify_disk)
+            self.state.verify_disk_actual_size = self.get_disk_size(self.state.verify_disk)
+            
+            entry3 = self.builder.get_object("ChecksumOutputEntry")
+            progressBar2 = self.builder.get_object("verifyProgressBar")
+            
+            if entry3:
+                entry3.set_text("")
+            if progressBar2:
+                progressBar2.set_text("")
+            
+            def work2():
+                try:
+                    fhash = ""
+                    fhash = self.verify_hash_file(path, self.state.verify_disk)
+                finally:
+                    if entry3:
+                        GLib.idle_add(entry3.set_text, str(fhash))
+                    if progressBar2:
+                        GLib.idle_add(progressBar2.set_text, "Hash Complete")
+                    print("Hash Completed")
+            
+            threading.Thread(target=work2, daemon=True).start()
+        except Exception as e:
+            print(f"Error in on_generateChecksumDiskButton_clicked: {e}")
+    
+    def on_generateChecksumImageButton_clicked(self, button):
+        """Generate hash for selected image."""
+        try:
+            print("Checksum Image Button Clicked")
+            
+            if not self.state.verify_image_path:
+                print("No image file selected")
+                return
+            
+            path = Path(self.state.verify_image_path)
+            
+            entry3 = self.builder.get_object("ChecksumOutputEntry")
+            progressBar2 = self.builder.get_object("verifyProgressBar")
+            
+            if entry3:
+                entry3.set_text("")
+            if progressBar2:
+                progressBar2.set_text("")
+            
+            def work3():
+                try:
+                    fhash3 = ""
+                    fhash3 = self.verify_hash_file(path, self.state.verify_image_path)
+                finally:
+                    if entry3:
+                        GLib.idle_add(entry3.set_text, str(fhash3))
+                    if progressBar2:
+                        GLib.idle_add(progressBar2.set_text, "Hash Complete")
+                    print("Hash Completed")
+            
+            threading.Thread(target=work3, daemon=True).start()
+        except Exception as e:
+            print(f"Error in on_generateChecksumImageButton_clicked: {e}")
+    
+    def verify_hash_file(self, path, name):
+        """Calculate hash of file with progress updates."""
+        try:
+            algorithm = self.state.hash_algorithm_disk if name == self.state.verify_disk else self.state.hash_algorithm_image
+            
+            if algorithm == "MD5":
+                h = hashlib.md5()
+            elif algorithm == "SHA1":
+                h = hashlib.sha1()
+            elif algorithm == "SHA512":
+                h = hashlib.sha512()
+            else:  # Default to SHA256
+                h = hashlib.sha256()
+            
+            total = os.path.getsize(path)
+            read = 0
+            
+            progressBar2 = self.builder.get_object("verifyProgressBar")
+            
+            with open(path, "rb") as f:
+                while True:
+                    chunk = f.read(8192)  # CHUNK size
+                    if not chunk:
+                        break
+                    h.update(chunk)
+                    read += len(chunk)
+                    
+                    # Update progress bar
+                    if progressBar2 and total > 0:
+                        frac = min(1.0, read / total)
+                        GLib.idle_add(progressBar2.set_fraction, frac)
+                        byteTotal = self.format_bytes(read)
+                        GLib.idle_add(progressBar2.set_text, f"Hashing: {byteTotal}")
+            
+            result = h.hexdigest()
+            print(f"Hash result: {algorithm} = {result}")
+            return f"{algorithm}: {result}"
+        
+        except Exception as e:
+            print(f"Error calculating hash: {e}")
+            return f"Error: {str(e)}"
+
+
+
+
+
 
 
 # ===================== PAGE 3: CLONE HANDLERS =====================
@@ -2277,20 +2576,40 @@ class DiskImagerApp:
         self.is_operating = True
         self.operation_stopped = False
 
-        # Unmount partitions if requested (NEW - Step 4)
-        if self.state.unmount_and_remount:
+    
+        # Step 1: Discover partitions (needed for unmounting)
+        if self.state.unmount_and_remount or self.state.disable_automount:
+            self.state.discovered_partitions = DiskManager.discover_partitions(
+                self.state.selected_disk
+            )
+            logger.info(f"Discovered {len(self.state.discovered_partitions)} partitions")
+        
+        # Step 2: Unmount partitions if requested
+        if self.state.unmount_and_remount and self.state.discovered_partitions:
             logger.info(f"Unmounting partitions on {self.state.selected_disk}...")
-            if not self.mount_manager.unmount_disk(self.state.selected_disk):
-                self._show_error("Mount Error", f"Failed to unmount {self.state.selected_disk}")
-                self.is_operating = False
-                return
-
-
+            success = MountManager.unmount_partitions(self.state.discovered_partitions)
+            
+            # If normal unmount fails, try force unmount
+            if not success:
+                logger.warning("Normal unmount failed, attempting force unmount...")
+                MountManager.force_unmount_partitions(self.state.discovered_partitions)
         
-        # Disable automount if requested
+        # Step 3: Disable automount if requested
         if self.state.disable_automount:
-            self.mount_manager.disable_automount()
-        
+            logger.info("Stopping automount services...")
+            stopped_services, success = MountManager.stop_automount_services()
+            self.state.stopped_services = stopped_services
+            
+            if stopped_services:
+                logger.info(f"Stopped services: {', '.join(stopped_services)}")
+            
+            # Also kill automount processes
+            killed_pids, success = MountManager.kill_automount_processes()
+            if killed_pids:
+                logger.info(f"Killed processes: {', '.join(killed_pids)}")
+
+
+            
         # Start operation in background thread
         if operation_type == OperationType.READ:
             thread = threading.Thread(
@@ -2366,10 +2685,25 @@ class DiskImagerApp:
         
         finally:
             self.is_operating = False
-            if self.state.unmount_and_remount:
-                self.mount_manager.remount_disk(self.state.selected_disk)
-            if self.state.disable_automount:
-                self.mount_manager.enable_automount()
+            # Remount partitions if they were unmounted
+            if self.state.unmount_and_remount and self.state.discovered_partitions:
+                logger.info("Remounting partitions...")
+                success = MountManager.remount_partitions(self.state.discovered_partitions)
+                if success:
+                    logger.info("Successfully remounted partitions")
+                else:
+                    logger.warning("Some partitions failed to remount")
+                self.state.discovered_partitions = []
+            
+            # Restart automount services if they were stopped
+            if self.state.disable_automount and self.state.stopped_services:
+                logger.info("Restarting automount services...")
+                success = MountManager.start_automount_services(self.state.stopped_services)
+                if success:
+                    logger.info("Successfully restarted services")
+                else:
+                    logger.warning("Some services failed to restart")
+                self.state.stopped_services = []
 
     def _execute_write_operation(self) -> None:
         """Execute write operation (image to disk)."""
@@ -2422,10 +2756,25 @@ class DiskImagerApp:
         
         finally:
             self.is_operating = False
-            if self.state.unmount_and_remount:
-                self.mount_manager.remount_disk(self.state.selected_disk)
-            if self.state.disable_automount:
-                self.mount_manager.enable_automount()
+            # Remount partitions if they were unmounted
+            if self.state.unmount_and_remount and self.state.discovered_partitions:
+                logger.info("Remounting partitions...")
+                success = MountManager.remount_partitions(self.state.discovered_partitions)
+                if success:
+                    logger.info("Successfully remounted partitions")
+                else:
+                    logger.warning("Some partitions failed to remount")
+                self.state.discovered_partitions = []
+            
+            # Restart automount services if they were stopped
+            if self.state.disable_automount and self.state.stopped_services:
+                logger.info("Restarting automount services...")
+                success = MountManager.start_automount_services(self.state.stopped_services)
+                if success:
+                    logger.info("Successfully restarted services")
+                else:
+                    logger.warning("Some services failed to restart")
+                self.state.stopped_services = []
 
     def _execute_clone_operation(self) -> None:
         """Execute clone operation (disk to disk)."""
