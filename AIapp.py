@@ -1178,42 +1178,129 @@ class DiskImagerApp:
             logger.debug(f"Entry not found: {entry_id}")
 
 
-    def _verify_operation(self, image_path: str, disk_path: str) -> Tuple[bool, str]:
-        """Verify read/write by comparing hashes (runs in background thread)."""
+    def _verify_operation(self) -> bool:
+        """
+        Verify read/write operation via SHA256 hash comparison.
+        Updates progress: 0-50% image file, 50-100% disk.
+        Returns True if hashes match, False otherwise.
+        """
         try:
-            logger.info("Starting verification...")
-            self.progress_bar.set_fraction(0.0)
+            image_path = self.state.image_path
+            disk_path = self.state.selected_disk
+
+             # Ensure disk path has /dev/ prefix
+            if not disk_path.startswith('/dev/'):
+                disk_path = f'/dev/{disk_path}'
+        
             
-            # Hash the image (0-50% of progress)
-            def image_progress(read, total, msg):
-                fraction = (read / total) * 0.5 if total else 0
-                GLib.idle_add(lambda: self.progress_bar.set_fraction(fraction))
-                GLib.idle_add(lambda: self.progress_bar.set_text(msg))
+            if not os.path.exists(image_path):
+                GLib.idle_add(lambda: self._show_error(f"Image file not found: {image_path}"))
+                return False
             
-            image_hash = DiskOperationHandler.hash_file(image_path, image_progress)
+            # Update UI to show verification is starting
+            GLib.idle_add(lambda: self.progress_bar.set_text("Verifying image file..."))
             
-            # Hash the disk (50-100% of progress)
-            def disk_progress(read, total, msg):
-                fraction = 0.5 + (read / total) * 0.5 if total else 0.5
-                GLib.idle_add(lambda: self.progress_bar.set_fraction(fraction))
-                GLib.idle_add(lambda: self.progress_bar.set_text(msg))
+            # Get file sizes for progress calculation
+            image_size = os.path.getsize(image_path)
+            try:
+                disk_size = int(open(f"/sys/block/{os.path.basename(disk_path)}/size").read().strip()) * 512
+            except (FileNotFoundError, ValueError):
+                # Fallback: use blockdev
+                try:
+                    result = subprocess.run(
+                        ["sudo", "blockdev", "--getsize64", disk_path],
+                        capture_output=True,
+                        text=True,
+                        timeout=10
+                    )
+                    disk_size = int(result.stdout.strip()) if result.returncode == 0 else image_size
+                except Exception:
+                    disk_size = image_size
             
-            disk_hash = DiskOperationHandler.hash_file(disk_path, disk_progress)
+            # Compute image hash (0-50% progress)
+            logger.info(f"Computing SHA256 for image: {image_path}")
+            image_hash = hashlib.sha256()
+            bytes_read = 0
+            chunk_size = 8192
+            
+            with open(image_path, 'rb') as f:
+                while True:
+                    chunk = f.read(chunk_size)
+                    if not chunk:
+                        break
+                    image_hash.update(chunk)
+                    bytes_read += len(chunk)
+                    
+                    # Progress: 0-50% for image
+                    progress = (bytes_read / image_size) * 50
+                    GLib.idle_add(
+                        lambda p=progress, b=bytes_read, s=image_size: (
+                            self.percentage_label.set_text(f"{int(p)}%"),
+                            self.progress_bar.set_fraction(p / 100),
+                            self.progress_bar.set_text(
+                                f"Verifying image... {self.format_bytes(b)} / {self.format_bytes(s)}"
+                            )
+                        )
+                    )
+            
+            image_hash_value = image_hash.hexdigest()
+            logger.info(f"Image SHA256: {image_hash_value}")
+            
+            # Compute disk hash (50-100% progress)
+            logger.info(f"Computing SHA256 for disk: {disk_path}")
+            GLib.idle_add(lambda: self.progress_bar.set_text("Verifying disk..."))
+
+            disk_hash = hashlib.sha256()
+            disk_bytes_hashed = 0
+            bytes_to_verify = self.state.image_size  # Only hash what was written/read
+
+            with open(disk_path, 'rb') as f:
+                while disk_bytes_hashed < bytes_to_verify:
+                    chunk_to_read = min(chunk_size, bytes_to_verify - disk_bytes_hashed)
+                    chunk = f.read(chunk_to_read)
+                    if not chunk:
+                        break
+                    disk_hash.update(chunk)
+                    disk_bytes_hashed += len(chunk)
+                    
+                    # Progress: 50-100% for disk
+                    progress = 50 + ((disk_bytes_hashed / bytes_to_verify) * 50)
+                    GLib.idle_add(
+                        lambda p=progress, b=disk_bytes_hashed, s=bytes_to_verify: (
+                            self.percentage_label.set_text(f"{int(p)}%"),
+                            self.progress_bar.set_fraction(p / 100),
+                            self.progress_bar.set_text(
+                                f"Verifying disk... {self.format_bytes(b)} / {self.format_bytes(s)}"
+                            )
+                        )
+                    )
+
+
+
+            
+            disk_hash_value = disk_hash.hexdigest()
+            logger.info(f"Disk SHA256: {disk_hash_value}")
             
             # Compare hashes
-            if image_hash == disk_hash:
-                logger.info("Verification successful - hashes match")
-                GLib.idle_add(lambda: self.progress_bar.set_text("Read/Write/Verify Successful"))
-                GLib.idle_add(lambda: self.progress_bar.set_fraction(1.0))
-                return True, "Verification successful"
+            if image_hash_value == disk_hash_value:
+                GLib.idle_add(lambda: self.progress_bar.set_text('Operation Completed Sucessfully'))
+
+                logger.info("Verification PASSED: Hashes match")
+                return True
             else:
-                logger.error(f"Verification failed - hash mismatch\nImage: {image_hash}\nDisk: {disk_hash}")
-                GLib.idle_add(lambda: self.progress_bar.set_text("Verify Failed"))
-                return False, "Hash mismatch"
+                logger.error(f"Verification FAILED: Hash mismatch!\nImage: {image_hash_value}\nDisk: {disk_hash_value}")
+                GLib.idle_add(lambda: self.progress_bar.set_text('Operation Completed'))
+                GLib.idle_add(
+                    lambda: self._show_error(
+                        f"Verification failed: Hash mismatch!\nImage SHA256: {image_hash_value}\nDisk SHA256: {disk_hash_value}"
+                    )
+                )
+                return False
+        
         except Exception as e:
             logger.error(f"Verification error: {e}", exc_info=True)
-            return False, str(e)
-
+            GLib.idle_add(lambda msg=str(e): self._show_error(f"Verification error: {msg}"))
+            return False
 
     def refresh_disks(self) -> None:
         """Refresh list of available disks."""
@@ -1515,6 +1602,8 @@ class DiskImagerApp:
 
     def _handle_operation_completion(self, success: bool, message: str, operation_type: str, image_path: str = None, disk_path: str = None):
         """Handle operation completion and trigger verification."""
+        self.progress_bar.set_fraction(0.0)
+        
         if success:
             logger.info(f"{operation_type} completed successfully")
             
@@ -2103,21 +2192,39 @@ class DiskImagerApp:
                 progress_callback=self._update_progress
             )
             
+
             success, message = disk_handler.execute()
+
+
             
             if success and not self.operation_stopped:
-                GLib.idle_add(
-                    lambda: self._show_status(
-                        f"Successfully read {self.state.selected_disk} to {self.state.image_path}",
-                        True
-                    )
-                )
+                logger.info("Read operation completed. Starting verification...")
+                
+                with open(self.state.image_path, 'rb') as f:
+                    f.seek(0, 2)
+                    self.state.image_size = f.tell()
+    
 
+
+                # Run verification
+                if self._verify_operation():
+                    self.progress_bar.set_fraction(0.0)
+                    GLib.idle_add(
+                        lambda: self._show_status(
+                            f"Successfully read & verified {self.state.selected_disk} to {self.state.image_path}",
+                            True
+                        )
+                    )
+                else:
+                    self.progress_bar.set_fraction(0.0)
+                    logger.error("Verification failed after successful read")
+                    # Error message already shown by _verify_operation()
+            
             elif not success:
                 error_msg = message
                 GLib.idle_add(lambda msg=error_msg: self._show_error(f"Read operation failed: {msg}"))
             
-            logger.info("Read operation completed successfully")
+            logger.info("Read operation completed")
         
         except Exception as e:
             logger.error(f"Read operation failed: {e}", exc_info=True)
@@ -2144,21 +2251,41 @@ class DiskImagerApp:
                 progress_callback=self._update_progress
             )
             
-            disk_handler.execute()
+            success, message = disk_handler.execute()
             
-            if not self.operation_stopped:
-                GLib.idle_add(
-                    lambda: self._show_status(
-                        f"Successfully wrote {self.state.image_path} to {self.state.selected_disk}",
-                        True
+            if success and not self.operation_stopped:
+                logger.info("Write operation completed. Starting verification...")
+                
+
+                 # Capture image size for verification
+                with open(self.state.image_path, 'rb') as f:
+                    f.seek(0, 2)
+                    self.state.image_size = f.tell()
+
+
+                # Run verification
+                if self._verify_operation():
+                    self.progress_bar.set_fraction(0.0)
+                    GLib.idle_add(
+                        lambda: self._show_status(
+                            f"Successfully wrote & verified {self.state.image_path} to {self.state.selected_disk}",
+                            True
+                        )
                     )
-                )
+                else:
+                    self.progress_bar.set_fraction(0.0)
+                    logger.error("Verification failed after successful write")
+                    # Error message already shown by _verify_operation()
             
-            logger.info("Write operation completed successfully")
+            elif not success:
+                error_msg = message
+                GLib.idle_add(lambda msg=error_msg: self._show_error(f"Write operation failed: {msg}"))
+            
+            logger.info("Write operation completed")
         
         except Exception as e:
-            logger.error(f"Write operation failed: {e}")
-            GLib.idle_add(lambda: self._show_error(f"Write operation failed: {e}"))
+            logger.error(f"Write operation failed: {e}", exc_info=True)
+            GLib.idle_add(lambda msg=str(e): self._show_error(f"Write operation failed: {msg}"))
         
         finally:
             self.is_operating = False
