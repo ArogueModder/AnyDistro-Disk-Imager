@@ -866,16 +866,13 @@ class DiskOperationHandler:
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True,
-                bufsize=1
+                bufsize=1,
+                universal_newlines=True
             )
 
             bytes_cloned = 0
             while True:
-                if cancel_event and cancel_event.is_set():
-                    process.terminate()
-                    return False, "Operation cancelled by user"
-
+               
                 line = process.stderr.readline()
                 if not line:
                     break
@@ -1461,6 +1458,145 @@ class DiskImagerApp:
             logger.error(f"Verification error: {e}", exc_info=True)
             GLib.idle_add(lambda msg=str(e): self._show_error(f"Verification error: {msg}"))
             return False
+        
+    def _verify_clone_operation(self) -> bool:
+        """
+        Verify clone operation via SHA256 hash comparison of source and target disks.
+        Updates progress: 0-50% source disk, 50-100% target disk.
+        Returns True if hashes match, False otherwise.
+        """
+        try:
+            source_path = self.state.clone_source
+            target_path = self.state.clone_target
+            
+            # Ensure disk paths have /dev/ prefix
+            if not source_path.startswith('/dev/'):
+                source_path = f'/dev/{source_path}'
+            if not target_path.startswith('/dev/'):
+                target_path = f'/dev/{target_path}'
+            
+            # Update UI to show verification is starting
+            GLib.idle_add(lambda: self.clone_progress_bar.set_text("Verifying clone..."))
+            
+            # Get disk sizes
+            try:
+                source_size = int(open(f"/sys/block/{os.path.basename(source_path)}/size").read().strip()) * 512
+            except (FileNotFoundError, ValueError):
+                try:
+                    result = subprocess.run(
+                        ["sudo", "blockdev", "--getsize64", source_path],
+                        capture_output=True,
+                        text=True,
+                        timeout=10
+                    )
+                    source_size = int(result.stdout.strip()) if result.returncode == 0 else 0
+                except Exception:
+                    source_size = 0
+            
+            try:
+                target_size = int(open(f"/sys/block/{os.path.basename(target_path)}/size").read().strip()) * 512
+            except (FileNotFoundError, ValueError):
+                try:
+                    result = subprocess.run(
+                        ["sudo", "blockdev", "--getsize64", target_path],
+                        capture_output=True,
+                        text=True,
+                        timeout=10
+                    )
+                    target_size = int(result.stdout.strip()) if result.returncode == 0 else source_size
+                except Exception:
+                    target_size = source_size
+            
+            if source_size == 0:
+                GLib.idle_add(lambda: self._show_error(f"Could not determine source disk size: {source_path}"))
+                return False
+            
+            # Compute source disk hash (0-50% progress)
+            logger.info(f"Computing SHA256 for source disk: {source_path}")
+            source_hash = hashlib.sha256()
+            source_bytes_read = 0
+            chunk_size = 8192
+            
+            with open(source_path, 'rb') as f:
+                while source_bytes_read < source_size:
+                    chunk_to_read = min(chunk_size, source_size - source_bytes_read)
+                    chunk = f.read(chunk_to_read)
+                    if not chunk:
+                        break
+                    source_hash.update(chunk)
+                    source_bytes_read += len(chunk)
+                    
+                    # Progress: 0-50% for source
+                    progress = (source_bytes_read / source_size) * 50
+                    GLib.idle_add(
+                        lambda p=progress, b=source_bytes_read, s=source_size: (
+                            self.clone_progress_label.set_text(f"{int(p)}%"),
+                            self.clone_progress_bar.set_fraction(p / 100),
+                            self.clone_progress_bar.set_text(
+                                f"Verifying source... {self.format_bytes(b)} / {self.format_bytes(s)}"
+                            )
+                        )
+                    )
+            
+            source_hash_value = source_hash.hexdigest()
+            logger.info(f"Source disk SHA256: {source_hash_value}")
+            
+            # Compute target disk hash (50-100% progress)
+            logger.info(f"Computing SHA256 for target disk: {target_path}")
+            GLib.idle_add(lambda: self.clone_progress_bar.set_text("Verifying target..."))
+            
+            target_hash = hashlib.sha256()
+            target_bytes_read = 0
+            bytes_to_verify = source_bytes_read  # Only hash what was cloned
+            
+            with open(target_path, 'rb') as f:
+                while target_bytes_read < bytes_to_verify:
+                    chunk_to_read = min(chunk_size, bytes_to_verify - target_bytes_read)
+                    chunk = f.read(chunk_to_read)
+                    if not chunk:
+                        break
+                    target_hash.update(chunk)
+                    target_bytes_read += len(chunk)
+                    
+                    # Progress: 50-100% for target
+                    progress = 50 + ((target_bytes_read / bytes_to_verify) * 50)
+                    GLib.idle_add(
+                        lambda p=progress, b=target_bytes_read, s=bytes_to_verify: (
+                            self.clone_progress_label.set_text(f"{int(p)}%"),
+                            self.clone_progress_bar.set_fraction(p / 100),
+                            self.clone_progress_bar.set_text(
+                                f"Verifying target... {self.format_bytes(b)} / {self.format_bytes(s)}"
+                            )
+                        )
+                    )
+            
+            target_hash_value = target_hash.hexdigest()
+            logger.info(f"Target disk SHA256: {target_hash_value}")
+            
+            # Compare hashes
+            if source_hash_value == target_hash_value:
+                GLib.idle_add(lambda: self.clone_progress_bar.set_text('Clone Completed Successfully'))
+                logger.info("Clone verification PASSED: Hashes match")
+                return True
+            else:
+                logger.error(f"Clone verification FAILED: Hash mismatch!\nSource: {source_hash_value}\nTarget: {target_hash_value}")
+                GLib.idle_add(lambda: self.clone_progress_bar.set_text('Clone Completed'))
+                GLib.idle_add(
+                    lambda: self._show_error(
+                        f"Clone verification failed: Hash mismatch!\nSource SHA256: {source_hash_value}\nTarget SHA256: {target_hash_value}"
+                    )
+                )
+                return False
+        
+        except Exception as e:
+            logger.error(f"Clone verification error: {e}", exc_info=True)
+            GLib.idle_add(lambda msg=str(e): self._show_error(f"Clone verification error: {msg}"))
+            return False
+
+
+
+
+
 
     def refresh_disks(self) -> None:
         """Refresh list of available disks."""
@@ -2679,32 +2815,8 @@ class DiskImagerApp:
     
     
 #======================================================
-    def on_clone_disk_clicked(self, widget) -> None:
-        """Handle clone disk button."""
-        if not self.state.clone_source or not self.state.clone_target:
-            self._show_error("Please select both source and target disks")
-            return
-        
-        if self.state.clone_source == self.state.clone_target:
-            self._show_error("Source and target disks must be different")
-            return
-        
-        # Show confirmation dialog
-        clone_dialog = self.builder.get_object("CloneDiskDialogBox")
-        clone_label = self.builder.get_object("CloneDialogMessageLabel")
-        
-        clone_label.set_text(
-            f"Clone from {self.state.clone_source} to {self.state.clone_target}?\n\n"
-            f"This will overwrite all data on {self.state.clone_target}!\n\nProceed?"
-        )
-        clone_dialog.set_transient_for(self.window)
-        clone_dialog.set_modal(True)
-        clone_dialog.run()
-
-    def on_clone_dialog_ok(self, widget) -> None:
-        """Handle OK button in clone dialog."""
-        self.builder.get_object("CloneDiskDialogBox").hide()
-        self._start_operation(OperationType.CLONE)
+    
+   
 
     def on_clone_dialog_cancel(self, widget) -> None:
         """Handle Cancel button in clone dialog."""
@@ -2845,6 +2957,10 @@ class DiskImagerApp:
         if clone_dialog:
             clone_dialog.hide()
         
+        self.clone_operation_in_progress = True
+        self.clone_dialog = clone_dialog
+        
+        
         # Perform the clone operation
         if self.state.clone_disable_automount:
             # Stop automount services
@@ -2853,6 +2969,10 @@ class DiskImagerApp:
         # Start clone thread
         logger.info(f"Starting clone from {self.state.clone_source} to {self.state.clone_target}")
         # Implementation would perform the actual clone
+        self._start_operation(OperationType.CLONE)
+
+
+
 
     def on_clone_dialog_cancel(self, widget):
         """Handler for cancelling clone operation."""
@@ -3086,21 +3206,34 @@ class DiskImagerApp:
                 progress_callback=self._update_progress
             )
             
-            disk_handler.execute()
+            success, message = disk_handler.execute()
             
-            if not self.operation_stopped:
-                GLib.idle_add(
-                    lambda: self._show_status(
-                        f"Successfully cloned {self.state.clone_source} to {self.state.clone_target}",
-                        True
+            if success and not self.operation_stopped:
+                logger.info("Clone operation completed. Starting verification...")
+                
+                # Run verification
+                if self._verify_clone_operation():
+                    self.clone_progress_bar.set_fraction(0.0)
+                    GLib.idle_add(
+                        lambda: self._show_status(
+                            f"Successfully cloned & verified {self.state.clone_source} to {self.state.clone_target}",
+                            True
+                        )
                     )
-                )
+                else:
+                    self.clone_progress_bar.set_fraction(0.0)
+                    logger.error("Verification failed after successful clone")
+                    # Error message already shown by _verify_operation()
             
-            logger.info("Clone operation completed successfully")
+            elif not success:
+                error_msg = message
+                GLib.idle_add(lambda msg=error_msg: self._show_error(f"Clone operation failed: {msg}"))
+            
+            logger.info("Clone operation completed")
         
         except Exception as e:
-            logger.error(f"Clone operation failed: {e}")
-            GLib.idle_add(lambda: self._show_error(f"Clone operation failed: {e}"))
+            logger.error(f"Clone operation failed: {e}", exc_info=True)
+            GLib.idle_add(lambda msg=str(e): self._show_error(f"Clone operation failed: {msg}"))
         
         finally:
             self.is_operating = False
