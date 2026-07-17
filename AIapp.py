@@ -866,19 +866,39 @@ class DiskOperationHandler:
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True
+                text=True,
+                bufsize=1
             )
 
             bytes_cloned = 0
-            for line in process.stderr:
+            while True:
                 if cancel_event and cancel_event.is_set():
                     process.terminate()
                     return False, "Operation cancelled by user"
 
+                line = process.stderr.readline()
+                if not line:
+                    break
+
+            # Handle both newlines and carriage returns
+                line = line.rstrip('\r\n')
+                if not line:
+                    continue
+                
+                
+                
+                
+                
                 try:
                     bytes_cloned = int(line.split()[0])
                     if progress_callback:
-                        progress_callback(bytes_cloned, source_size)
+                        # Calculate progress percentage and formatted sizes
+                        percentage = (bytes_cloned / source_size) * 100
+                        cloned_gb = bytes_cloned / (1024**3)
+                        total_gb = source_size / (1024**3)
+                        status = f"Cloning: {cloned_gb:.1f} GB of {total_gb:.1f} GB ({percentage:.1f}%)"
+                        progress_callback(bytes_cloned, source_size, status)
+
                 except (ValueError, IndexError):
                     continue
 
@@ -1048,7 +1068,38 @@ class DiskImagerApp:
         if self.check_unmount_remount:
             self.check_unmount_remount.set_active(False)
             self.check_unmount_remount.connect("toggled", self.on_unmount_remount_toggled)
+        #===========PAGE3===========================
+        self.clone_progress_bar = self.builder.get_object("cloneprogressbar")
+        self.clone_progress_label = self.builder.get_object("CloneDiskProgressLabel")
+
+        if not self.clone_progress_bar:
+            logger.error("cloneprogressbar widget not found in Glade!")
+        if not self.clone_progress_label:
+            logger.error("CloneDiskProgressLabel widget not found in Glade!")
+        
+        # Page 3: Clone Disk UI Setup
+        clonediskcombobox1 = self.builder.get_object("clonediskcombobox1")
+        clonediskcombobox2 = self.builder.get_object("clonediskcombobox2")
+
+        # Clear any existing renderers
+        clonediskcombobox1.clear()
+        clonediskcombobox2.clear()
+
+        # Use the same liststore1 for both (disk list)
+        liststore1 = self.builder.get_object("liststore1")
+        clonediskcombobox1.set_model(liststore1)
+        clonediskcombobox2.set_model(liststore1)
+
+        # Add cell renderers for disk name and size
+        for combo in [clonediskcombobox1, clonediskcombobox2]:
+            renderer_name = Gtk.CellRendererText()
+            combo.pack_start(renderer_name, True)
+            combo.add_attribute(renderer_name, "text", 0)  # Disk name
             
+            renderer_size = Gtk.CellRendererText()
+            combo.pack_start(renderer_size, True)
+            combo.add_attribute(renderer_size, "text", 2)  # Total size
+
         # ===== INITIALIZE COMBOBOX WITH GLADE LISTSTORE =====
         # Initialize diskSelectCombo with existing liststore1 from Glade
         disk_combo = self.builder.get_object("diskSelectCombo")
@@ -1811,6 +1862,10 @@ class DiskImagerApp:
         GLib.idle_add(lambda: self.percentage_label.set_text(f"{percentage:.1f}%"))
         GLib.idle_add(lambda: self.progress_bar.set_text(raw_dd_line))
         GLib.idle_add(lambda: self.progress_bar.set_fraction(bytes_current / bytes_total))
+        GLib.idle_add(lambda: self.clone_progress_label.set_text(f"{percentage:.1f}%"))
+        GLib.idle_add(lambda: self.clone_progress_bar.set_text(raw_dd_line))
+        GLib.idle_add(lambda: self.clone_progress_bar.set_fraction(bytes_current / bytes_total))
+
 
 
     def _handle_operation_completion(self, success: bool, message: str, operation_type: str, image_path: str = None, disk_path: str = None):
@@ -2383,6 +2438,247 @@ class DiskImagerApp:
 
 # ===================== PAGE 3: CLONE HANDLERS =====================
 
+    def on_clonediskcombobox1_changed(self, widget):
+        """Handle source disk selection (Page 3)."""
+        try:
+            active_iter = widget.get_active_iter()
+            if active_iter is None:
+                self.state.clone_source = ""
+                return
+            
+            model = widget.get_model()
+            disk_name = model[active_iter][0]  # Column 0: disk name
+            disk_path = f"/dev/{disk_name}" if not disk_name.startswith("/dev/") else disk_name
+            
+            self.state.clone_source = disk_path
+            logger.info(f"Clone source disk selected: {disk_path}")
+        except Exception as e:
+            logger.error(f"Error in clone source selection: {e}")
+
+    def on_clonediskcombobox2_changed(self, widget):
+        """Handle target disk selection (Page 3)."""
+        try:
+            active_iter = widget.get_active_iter()
+            if active_iter is None:
+                self.state.clone_target = ""
+                return
+            
+            model = widget.get_model()
+            disk_name = model[active_iter][0]  # Column 0: disk name
+            disk_path = f"/dev/{disk_name}" if not disk_name.startswith("/dev/") else disk_name
+            
+            self.state.clone_target = disk_path
+            logger.info(f"Clone target disk selected: {disk_path}")
+        except Exception as e:
+            logger.error(f"Error in clone target selection: {e}")
+
+    def on_cloneStartButton_clicked(self, widget):
+        """Start disk-to-disk clone operation (Page 3)."""
+        try:
+            source = self.state.clone_source
+            target = self.state.clone_target
+            
+            # Validation
+            if not source or not target:
+                self._show_error("Please select both source and target disks")
+                return
+            
+            if source == target:
+                self._show_error("Source and target disks cannot be the same")
+                return
+            
+            # Get disk sizes
+            source_size = DiskManager.get_disk_size(source)
+            target_size = DiskManager.get_disk_size(target)
+            
+            if source_size <= 0 or target_size <= 0:
+                self._show_error("Could not determine disk sizes")
+                return
+            
+            # **CRITICAL: Target must be >= Source**
+            if target_size < source_size:
+                self._show_error(
+                    f"Target disk is too small!\n\n"
+                    f"Source: {self._format_bytes(source_size)}\n"
+                    f"Target: {self._format_bytes(target_size)}\n\n"
+                    f"Target must be >= Source"
+                )
+                return
+            
+            # Show confirmation dialog
+            dialog = Gtk.MessageDialog(
+                parent=self.window,
+                flags=Gtk.DialogFlags.MODAL,
+                message_type=Gtk.MessageType.WARNING,
+                buttons=Gtk.ButtonsType.YES_NO,
+                text="Confirm Disk Clone"
+            )
+            dialog.format_secondary_text(
+                f"You are about to clone:\n\n"
+                f"Source: {source} ({self._format_bytes(source_size)})\n"
+                f"Target: {target} ({self._format_bytes(target_size)})\n\n"
+                f"All data on {target} will be OVERWRITTEN.\n"
+                f"This cannot be undone. Continue?"
+            )
+            
+            response = dialog.run()
+            dialog.destroy()
+            
+            if response != Gtk.ResponseType.YES:
+                logger.info("Clone operation cancelled by user")
+                return
+            
+            # Get options
+            block_size = self.state.clone_block_size
+            disable_automount = self.state.clone_disable_automount
+            unmount_and_remount = self.state.clone_unmount_and_remount
+            
+            # Disable buttons during operation
+            widget.set_sensitive(False)
+            self.state.operation_cancelled = False
+            self.state.cancel_event = threading.Event()
+            
+            # Start operation in background thread
+            thread = threading.Thread(
+                target=self._clone_disk_worker,
+                args=(source, target, block_size, disable_automount, unmount_and_remount),
+                daemon=True
+            )
+            thread.start()
+            
+        except Exception as e:
+            logger.error(f"Error starting clone: {e}")
+            self._show_error(f"Error: {e}")
+            widget.set_sensitive(True)
+
+    def on_cloneStopButton_clicked(self, widget):
+        """Stop clone operation (Page 3)."""
+        self.state.operation_cancelled = True
+        if self.state.cancel_event:
+            self.state.cancel_event.set()
+        logger.info("Clone operation cancelled by user")
+
+    def _clone_disk_worker(self, source: str, target: str, block_size: str, 
+                        disable_automount: bool, unmount_and_remount: bool):
+        """Worker thread for disk clone operation."""
+        try:
+            # Handle mount options
+            stopped_services = []
+            killed_pids = []
+            
+            if disable_automount:
+                stopped_services, _ = MountManager.stop_automount_services()
+                killed_pids, _ = MountManager.kill_automount_processes()
+            
+            if unmount_and_remount:
+                partitions_info, _ = MountManager.unmount_partitions_for_disk(target)
+                self.state.mounted_partitions = partitions_info
+            
+            # Progress callback
+            def progress_callback(bytes_done: int, total_bytes: int, status: str):
+                GLib.idle_add(self._update_clone_progress, bytes_done, total_bytes, status)
+            
+            # Perform clone
+            handler = DiskOperationHandler(
+                source=source,
+                destination=target,
+                block_size=block_size,
+                operation_type=OperationType.CLONE,
+                progress_callback=progress_callback,
+                cancel_event=self.state.cancel_event
+            )
+            
+            success, message = handler.execute()
+            
+            # Update UI
+            GLib.idle_add(self._finalize_clone, success, message, stopped_services, 
+                        unmount_and_remount)
+            
+        except Exception as e:
+            logger.error(f"Clone worker error: {e}")
+            GLib.idle_add(self._show_error, f"Clone failed: {e}")
+        finally:
+            # Re-enable button
+            GLib.idle_add(lambda: self.builder.get_object("cloneStartButton").set_sensitive(True))
+
+    def _update_clone_progress(self, bytes_done: int, total_bytes: int, status: str):
+        """Update clone progress bar and label."""
+        try:
+            if not self.clone_progress_bar or not self.clone_progress_label:
+                logger.warning("Clone progress widgets not initialized")
+                return False
+            
+            if total_bytes > 0:
+                fraction = bytes_done / total_bytes
+                percentage = fraction * 100
+            else:
+                fraction = 0
+                percentage = 0
+            
+            # Format bytes for display
+            bytes_str = self._format_bytes(bytes_done)
+            total_str = self._format_bytes(total_bytes)
+            
+            # Update progress bar
+            self.clone_progress_bar.set_fraction(fraction)
+            self.clone_progress_bar.set_text(
+                f"{status}: {percentage:.1f}% ({bytes_str} / {total_str})"
+            )
+            
+            # Update label
+            self.clone_progress_label.set_text(f"{percentage:.1f}%")
+            
+            logger.debug(f"Clone progress: {percentage:.1f}% ({bytes_str} / {total_str})")
+            
+            return False
+        except Exception as e:
+            logger.error(f"Error updating clone progress: {e}", exc_info=True)
+            return False
+
+    def _finalize_clone(self, success: bool, message: str, stopped_services: list, 
+                        unmount_and_remount: bool):
+        """Finalize clone operation and restore system state."""
+        try:
+            # Restart automount services if they were stopped
+            if stopped_services:
+                MountManager.start_automount_services(stopped_services)
+            
+            # Remount partitions if they were unmounted
+            if unmount_and_remount and self.state.mounted_partitions:
+                for partition in self.state.mounted_partitions:
+                    if partition.mountpoint:
+                        try:
+                            os.makedirs(partition.mountpoint, exist_ok=True)
+                            subprocess.run(
+                                ["sudo", "mount", partition.path, partition.mountpoint],
+                                capture_output=True,
+                                timeout=10,
+                                check=False
+                            )
+                            logger.info(f"Remounted {partition.path} at {partition.mountpoint}")
+                        except Exception as e:
+                            logger.warning(f"Failed to remount {partition.path}: {e}")
+            
+            # Show result
+            if success:
+                self._show_info("Clone Complete", f"Disk clone completed successfully!\n\n{message}")
+            else:
+                self._show_error(f"Clone failed: {message}")
+            
+            # Reset state
+            self.state.reset_mount_state()
+            
+        except Exception as e:
+            logger.error(f"Error finalizing clone: {e}")
+            self._show_error(f"Error finalizing clone: {e}")
+        
+        
+        
+        
+        
+    
+    
+#======================================================
     def on_clone_disk_clicked(self, widget) -> None:
         """Handle clone disk button."""
         if not self.state.clone_source or not self.state.clone_target:
