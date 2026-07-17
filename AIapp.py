@@ -241,11 +241,11 @@ class AppState:
         self.unmount_and_remount: bool = False
         
         # Page 2: Verify
-        verify_disk: Optional[str] = None
-        verify_image_path: Optional[str] = None
-        verify_disk_actual_size: int = 0
-        hash_algorithm_disk: str = "SHA256"
-        hash_algorithm_image: str = "SHA256"
+        self.verify_disk: Optional[str] = None
+        self.verify_image_path: Optional[str] = None
+        self.verify_disk_actual_size: int = 0
+        self.hash_algorithm_disk: str = "SHA256"
+        self.hash_algorithm_image: str = "SHA256"
         
         # Page 3: Clone
         self.clone_source: str = ""
@@ -361,6 +361,15 @@ class DiskManager:
         except Exception as e:
             logger.debug(f"Failed to read size for {path}: {e}")
             return 0
+
+
+    @staticmethod
+    def get_disk_size(path: str) -> int:
+        """Public interface to get disk size in bytes."""
+        return DiskManager._get_disk_size_bytes(path)
+
+
+
 
     @staticmethod
     def _parse_size(size_str: str) -> int:
@@ -997,7 +1006,9 @@ class DiskImagerApp:
         self.window = self.builder.get_object("MyMainWindow")
         if not self.window:
             raise RuntimeError("Failed to load main window from Glade file")
-        
+        self.window.set_title("AnyDistro Disk Imager")
+
+
         # Cache common widgets for quick access
         self.progress_bar = self.builder.get_object("imageProgressBar")
         self.percentage_label = self.builder.get_object("diskImageProgressPercentageLabel")
@@ -1081,7 +1092,7 @@ class DiskImagerApp:
     
             # Get the shared liststore from Page 1 (disk list)
         liststore_disks = self.builder.get_object("liststore1")
-            
+        self.entry_checksum_output = self.builder.get_object("ChecksumOutputEntry")
             # Setup verifydiskcombobox with the disk liststore
         self.combo_box_verify_disk = self.builder.get_object("verifydiskcombobox")
         if self.combo_box_verify_disk:
@@ -1832,8 +1843,16 @@ class DiskImagerApp:
         if total <= 0:
             return
         fraction = min(1.0, current / total)
-        GLib.idle_add(self.progress_bar.set_fraction, fraction)
-        GLib.idle_add(self.progress_bar.set_text, status)
+        percentage = (current / total) * 100
+
+        # Format bytes nicely
+        current_str = self.format_bytes(current)
+        total_str = self.format_bytes(total)
+
+        progress_text = f"{status}: {percentage:.1f}% ({current_str} / {total_str})"
+
+        GLib.idle_add(self.progress_bar_verify.set_fraction, fraction)
+        GLib.idle_add(self.progress_bar_verify.set_text, progress_text)
 
     def _show_status(self, message: str, success: bool) -> None:
         """Show operation status to user."""
@@ -2076,24 +2095,6 @@ class DiskImagerApp:
         dialog.destroy()
 
 
-    def on_generate_checksum_disk(self, widget):
-        """Handler for generating checksum of selected disk."""
-        logger.info("Generate checksum disk button clicked")
-        if not self.app_state.verify_disk:
-            self.on_generalWarningError("Please select a disk")
-            return
-        # Implementation would hash the selected disk
-        pass
-
-    def on_generate_checksum_image(self, widget):
-        """Handler for generating checksum of image file."""
-        logger.info("Generate checksum image button clicked")
-        if not self.app_state.verify_image_path:
-            self.on_generalWarningError("Please select an image file")
-            return
-        # Implementation would hash the selected image
-        pass
-
     def on_refresh_disks_verify(self, widget):
         """Handler for refreshing disk list in verify tab."""
         logger.info("Refresh disks button clicked (verify tab)")
@@ -2124,8 +2125,8 @@ class DiskImagerApp:
         if active_iter is not None:
             model = widget.get_model()
             disk_name = model[active_iter][0]
-            self.app_state.verify_disk = f"/dev/{disk_name}" if disk_name != "Select Disk" else ""
-            logger.info(f"Verify disk selected: {self.app_state.verify_disk}")
+            self.state.verify_disk = f"/dev/{disk_name}" if disk_name != "Select Disk" else ""
+            logger.info(f"Verify disk selected: {self.state.verify_disk}")
 
     def on_hash_type_disk_changed(self, widget):
         """Handler for hash algorithm selection (disk)."""
@@ -2133,7 +2134,7 @@ class DiskImagerApp:
         if active_iter is not None:
             model = widget.get_model()
             hash_type = model[active_iter][0]
-            self.app_state.hash_algorithm_disk = hash_type
+            self.state.hash_algorithm_disk = hash_type
             logger.info(f"Hash algorithm (disk) changed to: {hash_type}")
 
     def on_hash_type_image_changed(self, widget):
@@ -2142,13 +2143,13 @@ class DiskImagerApp:
         if active_iter is not None:
             model = widget.get_model()
             hash_type = model[active_iter][0]
-            self.app_state.hash_algorithm_image = hash_type
+            self.state.hash_algorithm_image = hash_type
             logger.info(f"Hash algorithm (image) changed to: {hash_type}")
 
     def on_verify_image_path_changed(self, widget):
         """Handler for image path entry changes in verify tab."""
-        self.app_state.verify_image_path = widget.get_text()
-        logger.debug(f"Verify image path changed to: {self.app_state.verify_image_path}")
+        self.state.verify_image_path = widget.get_text()
+        logger.debug(f"Verify image path changed to: {self.state.verify_image_path}")
 
 
   # PAGE 2: VERIFY HANDLERS
@@ -2253,7 +2254,7 @@ class DiskImagerApp:
             if response == -3:
                 filename = dialog.get_filename()
                 print(f"File selected: {filename}")
-                self.state.verify_image_path = filename  # ← Use self.state, not self.app_state
+                self.state.verify_image_path = filename  
                 
                 if self.entry_verify_image:
                     self.entry_verify_image.set_text(filename)
@@ -2477,8 +2478,8 @@ class DiskImagerApp:
         if active_iter is not None:
             model = widget.get_model()
             disk_name = model[active_iter][0]
-            self.app_state.clone_source = f"/dev/{disk_name}" if disk_name != "Select Disk" else ""
-            logger.info(f"Clone source disk selected: {self.app_state.clone_source}")
+            self.state.clone_source = f"/dev/{disk_name}" if disk_name != "Select Disk" else ""
+            logger.info(f"Clone source disk selected: {self.state.clone_source}")
 
     def on_clone_target_selected(self, widget):
         """Handler for clone target disk selection."""
@@ -2486,8 +2487,8 @@ class DiskImagerApp:
         if active_iter is not None:
             model = widget.get_model()
             disk_name = model[active_iter][0]
-            self.app_state.clone_target = f"/dev/{disk_name}" if disk_name != "Select Disk" else ""
-            logger.info(f"Clone target disk selected: {self.app_state.clone_target}")
+            self.state.clone_target = f"/dev/{disk_name}" if disk_name != "Select Disk" else ""
+            logger.info(f"Clone target disk selected: {self.state.clone_target}")
 
     def on_clone_block_size_changed(self, widget):
         """Handler for block size selection in clone tab."""
@@ -2495,19 +2496,19 @@ class DiskImagerApp:
         if active_iter is not None:
             model = widget.get_model()
             block_size = model[active_iter][0]
-            self.app_state.clone_block_size = block_size
+            self.state.clone_block_size = block_size
             logger.info(f"Clone block size changed to: {block_size}")
 
     def on_clone_automount_toggled(self, widget):
         """Handler for disable automount toggle in clone tab."""
-        self.app_state.clone_disable_automount = widget.get_active()
-        status = "disabled" if self.app_state.clone_disable_automount else "enabled"
+        self.state.clone_disable_automount = widget.get_active()
+        status = "disabled" if self.state.clone_disable_automount else "enabled"
         logger.info(f"Clone automount {status}")
 
     def on_clone_remount_toggled(self, widget):
         """Handler for unmount and remount toggle in clone tab."""
-        self.app_state.clone_unmount_and_remount = widget.get_active()
-        status = "enabled" if self.app_state.clone_unmount_and_remount else "disabled"
+        self.state.clone_unmount_and_remount = widget.get_active()
+        status = "enabled" if self.state.clone_unmount_and_remount else "disabled"
         logger.info(f"Clone remount {status}")
 
     def on_refresh_disks_clone(self, widget):
@@ -2519,10 +2520,10 @@ class DiskImagerApp:
     def on_clone_disk_clicked(self, widget):
         """Handler for initiating clone operation."""
         logger.info("Clone disk button clicked")
-        if not self.app_state.clone_source or not self.app_state.clone_target:
+        if not self.state.clone_source or not self.state.clone_target:
             self.on_generalWarningError("Please select both source and target disks")
             return
-        if self.app_state.clone_source == self.app_state.clone_target:
+        if self.state.clone_source == self.state.clone_target:
             self.on_generalWarningError("Source and target disks cannot be the same")
             return
         
@@ -2534,8 +2535,8 @@ class DiskImagerApp:
             clone_label.set_line_wrap_mode(Gtk.WrapMode.WORD)
             clone_dialog.set_title("Clone Disk Confirmation")
             clone_label.set_text(
-                f"You are about to clone disk:\n\n{self.app_state.clone_source}\n\n"
-                f"to:\n\n{self.app_state.clone_target}\n\nWould you like to proceed?"
+                f"You are about to clone disk:\n\n{self.state.clone_source}\n\n"
+                f"to:\n\n{self.state.clone_target}\n\nWould you like to proceed?"
             )
             clone_dialog.set_transient_for(self.window)
             clone_dialog.set_modal(True)
@@ -2549,12 +2550,12 @@ class DiskImagerApp:
             clone_dialog.hide()
         
         # Perform the clone operation
-        if self.app_state.clone_disable_automount:
+        if self.state.clone_disable_automount:
             # Stop automount services
             logger.info("Stopping automount services for clone operation")
         
         # Start clone thread
-        logger.info(f"Starting clone from {self.app_state.clone_source} to {self.app_state.clone_target}")
+        logger.info(f"Starting clone from {self.state.clone_source} to {self.state.clone_target}")
         # Implementation would perform the actual clone
 
     def on_clone_dialog_cancel(self, widget):
@@ -2832,17 +2833,16 @@ class DiskImagerApp:
                     bytes_read += len(chunk)
                     
                     GLib.idle_add(
-                        lambda: self._update_verify_progress(
-                            bytes_read, total_size, f"Computing {algorithm}"
+                        lambda br=bytes_read: self._update_verify_progress(
+                            br, total_size, f"Computing {algorithm}"
                         )
                     )
-            
             hash_value = hasher.hexdigest()
             
             GLib.idle_add(
-                lambda: self._show_hash_result(
-                    f"{algorithm} Hash of {disk_path}:\n\n{hash_value}",
-                    algorithm
+                lambda hv=hash_value, algo=algorithm: self._show_hash_result(
+                    f"{algo} Hash of {disk_path}:\n\n{hv}",
+                    algo
                 )
             )
             
@@ -2896,13 +2896,21 @@ class DiskImagerApp:
 
     def _show_hash_result(self, message: str, algorithm: str) -> None:
         """Display hash result in a dialog."""
+        hash_only = message.strip().split('\n')[-1]
+
+        # Put hash result in output text box
+        if self.entry_checksum_output:
+            self.entry_checksum_output.set_text(hash_only)
+        else:
+            logger.error("entry_checksum_output widget not found")
+        
         dialog = Gtk.MessageDialog(
             parent=self.window,
-            flags=Gtk.DialogFlags.MODAL,
-            type=Gtk.MessageType.INFO,
-            buttons=Gtk.ButtonsType.OK,
-            message_format=message
+            modal=True,
+            message_type=Gtk.MessageType.INFO,
+            buttons=Gtk.ButtonsType.OK
         )
+        dialog.set_markup("Hash Computation Complete!")
         dialog.run()
         dialog.destroy()
 
@@ -2935,10 +2943,7 @@ class DiskImagerApp:
             logger.error(f"Failed to update progress UI: {e}")
             return False
         
-    def _update_verify_progress(self, bytes_done: int, total_bytes: int, status: str) -> None:
-        """Update verification progress."""
-        self._update_progress(bytes_done, total_bytes, status)
-
+    
     def _show_status(self, message: str, success: bool) -> None:
         """Display status message."""
         dialog_type = Gtk.MessageType.INFO if success else Gtk.MessageType.ERROR
