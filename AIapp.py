@@ -1024,13 +1024,6 @@ class DiskImagerApp:
         if not self.window:
             raise RuntimeError("Failed to load main window from Glade file")
         self.window.set_title("AnyDistro Disk Imager")
-
-
-        # Cache common widgets for quick access
-        self.progress_bar = self.builder.get_object("imageProgressBar")
-        self.percentage_label = self.builder.get_object("diskImageProgressPercentageLabel")
-        self.progress_bar = self.builder.get_object("imageProgressBar")
-        self.image_entry = self.builder.get_object("imageFileText")
         
         # Initialize state and managers
         self.state = AppState()
@@ -1040,212 +1033,181 @@ class DiskImagerApp:
         # Operation flags
         self.is_operating = False
         self.operation_stopped = False
-
-        # ===== PAGE 1: READ/WRITE OPTIONS =====
-    
-        # Block Size ComboBox
-        self.combo_block_size = self.builder.get_object("SelectedBlockSize")
-        if self.combo_block_size:
-            # Populate with predefined block sizes
-            list_store = Gtk.ListStore(str)
-            for bs in BLOCK_SIZES:
-                list_store.append([bs])
-            self.combo_block_size.set_model(list_store)
-            self.combo_block_size.set_active(0)  # Default to 4M
-            self.combo_block_size.connect("changed", self.on_block_size_changed)
         
-        # Disable Automount Checkbox
-        self.check_disable_automount = self.builder.get_object("OptionDisableAutomounter")
-        if self.check_disable_automount:
-            self.check_disable_automount.set_active(False)
-            self.check_disable_automount.connect("toggled", self.on_disable_automount_toggled)
-        
-        # Unmount and Remount Checkbox
-        self.check_unmount_remount = self.builder.get_object("OptionUnmountandRemount")
-        if self.check_unmount_remount:
-            self.check_unmount_remount.set_active(False)
-            self.check_unmount_remount.connect("toggled", self.on_unmount_remount_toggled)
-        #===========PAGE3===========================
-        self.clone_progress_bar = self.builder.get_object("cloneprogressbar")
-        self.clone_progress_label = self.builder.get_object("CloneDiskProgressLabel")
-
-        if not self.clone_progress_bar:
-            logger.error("cloneprogressbar widget not found in Glade!")
-        if not self.clone_progress_label:
-            logger.error("CloneDiskProgressLabel widget not found in Glade!")
-        
-        # Page 3: Clone Disk UI Setup
-        clonediskcombobox1 = self.builder.get_object("clonediskcombobox1")
-        clonediskcombobox2 = self.builder.get_object("clonediskcombobox2")
-
-        # Clear any existing renderers
-        clonediskcombobox1.clear()
-        clonediskcombobox2.clear()
-
-        # Use the same liststore1 for both (disk list)
-        liststore1 = self.builder.get_object("liststore1")
-        clonediskcombobox1.set_model(liststore1)
-        clonediskcombobox2.set_model(liststore1)
-
-        # Add cell renderers for disk name and size
-        for combo in [clonediskcombobox1, clonediskcombobox2]:
-            renderer_name = Gtk.CellRendererText()
-            combo.pack_start(renderer_name, True)
-            combo.add_attribute(renderer_name, "text", 0)  # Disk name
-            
-            renderer_size = Gtk.CellRendererText()
-            combo.pack_start(renderer_size, True)
-            combo.add_attribute(renderer_size, "text", 2)  # Total size
-
-        # ===== INITIALIZE COMBOBOX WITH GLADE LISTSTORE =====
-        # Initialize diskSelectCombo with existing liststore1 from Glade
-        disk_combo = self.builder.get_object("diskSelectCombo")
-        if disk_combo:
-            logger.info("diskSelectCombo found")
-            
-            # GET the ListStore that's already defined in Glade (NOT creating a new one)
-            disk_liststore = self.builder.get_object("liststore1")
-            if disk_liststore:
-                logger.info(f"Using existing liststore1 from Glade with {disk_liststore.get_n_columns()} columns")
-                
-                # Clear any existing rows
-                disk_liststore.clear()
-                
-               # Clear any existing renderers from Glade (it only has 1, we need 3)
-                disk_combo.clear()
-
-                # Add the 3 cell renderers
-                for col_index in range(3):
-                    renderer = Gtk.CellRendererText()
-                    disk_combo.pack_start(renderer, True)
-                    disk_combo.add_attribute(renderer, "text", col_index)
-                    logger.debug(f"Added renderer for column {col_index}")
-                # Add header row
-                disk_liststore.append(["Select Disk", " File System Size", "Total Disk Size"])
-                logger.info("Added header row to diskSelectCombo model")
-            else:
-                logger.error("liststore1 not found in Glade file!")
-        else:
-            logger.error("diskSelectCombo not found in Glade!")
-        
-        # Setup UI (cache widget references)
+        # Setup all UI components and caches
         self.setup_ui()
         
-        # Connect all signals
+        # Setup page-specific UI (combos, renderers, etc.)
+        self.setup_page1_ui()
+        self.setup_page2_ui()
+        self.setup_page3_ui()
+        
+        # Connect all signals ONCE
         self.connect_signals()
-
-#========================================================================
-    # PAGE 2: VERIFY TAB SETUP
-    # ========================================================================
-    
-            # Get the shared liststore from Page 1 (disk list)
-        liststore_disks = self.builder.get_object("liststore1")
-        self.entry_checksum_output = self.builder.get_object("ChecksumOutputEntry")
-            # Setup verifydiskcombobox with the disk liststore
-        self.combo_box_verify_disk = self.builder.get_object("verifydiskcombobox")
-        if self.combo_box_verify_disk:
-            self.combo_box_verify_disk.clear()
-            self.combo_box_verify_disk.set_model(liststore_disks)
-                
-                # Create and pack renderers (same as Page 1)
-            renderer1 = Gtk.CellRendererText()
-            renderer1.props.alignment = Pango.Alignment.LEFT
-            self.combo_box_verify_disk.pack_start(renderer1, True)
-            self.combo_box_verify_disk.add_attribute(renderer1, "text", 0)  # Disk name
-                
-            renderer2 = Gtk.CellRendererText()
-            renderer2.props.alignment = Pango.Alignment.LEFT
-            self.combo_box_verify_disk.pack_start(renderer2, True)
-            self.combo_box_verify_disk.add_attribute(renderer2, "text", 1)  # Filesystem size
-                
-            renderer3 = Gtk.CellRendererText()
-            renderer3.props.alignment = Pango.Alignment.LEFT
-            self.combo_box_verify_disk.pack_start(renderer3, True)
-            self.combo_box_verify_disk.add_attribute(renderer3, "text", 2)  # Total size
-                
-            self.combo_box_verify_disk.set_active(0)
-            
-            # Setup checksumCombobox2 with liststore3
-        liststore_hash = self.builder.get_object("liststore3")
-        self.combo_box_verify_hash2 = self.builder.get_object("checksumCombobox2")
-        if self.combo_box_verify_hash2 and liststore_hash:
-            self.combo_box_verify_hash2.clear()
-            self.combo_box_verify_hash2.set_model(liststore_hash)
-                
-                # Create and pack renderer
-            renderer_hash = Gtk.CellRendererText()
-            renderer_hash.props.alignment = Pango.Alignment.LEFT
-            self.combo_box_verify_hash2.pack_start(renderer_hash, True)
-            self.combo_box_verify_hash2.add_attribute(renderer_hash, "text", 0)
-                
-            self.combo_box_verify_hash2.set_active(2)  # Default to SHA256
-            
-            # Get UI elements
-            self.entry_verify_image = self.builder.get_object("imageverifyentry")
-            self.entry_checksum_output = self.builder.get_object("ChecksumOutputEntry")
-            self.progress_bar_verify = self.builder.get_object("verifyProgressBar")
-
-        # Setup checksumCombobox1 with liststore3 (verify disk hash type)
-        liststore_hash = self.builder.get_object("liststore3")
-        self.combo_box_verify_hash1 = self.builder.get_object("checksumCombobox1")
-        if self.combo_box_verify_hash1 and liststore_hash:
-            self.combo_box_verify_hash1.clear()  # Clear any existing renderers
-            self.combo_box_verify_hash1.set_model(liststore_hash)
-            
-            # Create and pack renderer
-            renderer_hash = Gtk.CellRendererText()
-            renderer_hash.props.alignment = Pango.Alignment.LEFT
-            self.combo_box_verify_hash1.pack_start(renderer_hash, True)
-            self.combo_box_verify_hash1.add_attribute(renderer_hash, "text", 0)
-            
-            self.combo_box_verify_hash1.set_active(2)  # Default to SHA256
-
-
-
-                
-                # Load initial disk list
-            logger.info("Calling on_refresh_disks()")
-            self.on_refresh_disks(None)
-                
-                # Set window icon if available
-            icon_path = Path(__file__).parent / "DiskImager.ico"
-            if icon_path.exists():
-                try:
-                    self.window.set_icon_from_file(str(icon_path))
-                except:
-                    pass
-                
-                # Connect window destroy signal
-            self.window.connect("destroy", self.on_window_destroy)
-                
-                # Show window
-            self.window.show_all()
+        
+        # Load initial data
+        logger.info("Calling on_refresh_disks()")
+        self.on_refresh_disks(None)
+        
+        # Set window icon if available
+        icon_path = Path(__file__).parent / "DiskImager.ico"
+        if icon_path.exists():
+            try:
+                self.window.set_icon_from_file(str(icon_path))
+            except:
+                pass
+        
+        # Connect window destroy signal
+        self.window.connect("destroy", self.on_window_destroy)
+        
+        # Show window
+        self.window.show_all()
 
 
     def setup_ui(self) -> None:
-        """Setup UI components."""
+        """Cache all common widgets for quick access."""
+        # Page 1: Basic widgets
+        self.progress_bar = self.builder.get_object("imageProgressBar")
+        self.percentage_label = self.builder.get_object("diskImageProgressPercentageLabel")
+        self.image_entry = self.builder.get_object("imageFileText")
         self.disk_combo = self.builder.get_object("diskSelectCombo")
         self.block_size_combo = self.builder.get_object("selectblocksizeCombo")
-        self.image_entry = self.builder.get_object("imageFileText")
-        self.progress_bar = self.builder.get_object("imageProgressBar")
-        self.status_label = self.builder.get_object("diskImageProgressPercentageLabel")
-        self.disable_automount_check = self.builder.get_object("toggleDisableAutomount")
         
-        # Verify all objects were found
+        # Page 2: Verify widgets
+        self.entry_checksum_output = self.builder.get_object("ChecksumOutputEntry")
+        self.entry_verify_image = self.builder.get_object("imageverifyentry")
+        self.progress_bar_verify = self.builder.get_object("verifyProgressBar")
+        self.combo_box_verify_disk = self.builder.get_object("verifydiskcombobox")
+        self.combo_box_verify_hash1 = self.builder.get_object("checksumCombobox1")
+        self.combo_box_verify_hash2 = self.builder.get_object("checksumCombobox2")
+        
+        # Page 3: Clone widgets
+        self.clone_progress_bar = self.builder.get_object("cloneprogressbar")
+        self.clone_progress_label = self.builder.get_object("CloneDiskProgressLabel")
+        
+        # Verify all critical objects were found
         required_objects = {
-            "diskSelectCombo": self.disk_combo,
-            "imageFileText": self.image_entry,
-            "selectblocksizeCombo": self.block_size_combo,
             "imageProgressBar": self.progress_bar,
-            "toggleDisableAutomount": self.disable_automount_check,
+            "diskImageProgressPercentageLabel": self.percentage_label,
+            "imageFileText": self.image_entry,
+            "diskSelectCombo": self.disk_combo,
+            "cloneprogressbar": self.clone_progress_bar,
+            "CloneDiskProgressLabel": self.clone_progress_label,
         }
         
         for obj_id, obj in required_objects.items():
             if obj is None:
                 logger.error(f"Required object '{obj_id}' not found in Glade file")
 
+
+    def setup_page1_ui(self) -> None:
+        """Setup Page 1 (Read/Write) UI components."""
+        # Block Size ComboBox - create new model
+        self.combo_block_size = self.builder.get_object("SelectedBlockSize")
+        if self.combo_block_size:
+            list_store = Gtk.ListStore(str)
+            for bs in BLOCK_SIZES:
+                list_store.append([bs])
+            self.combo_block_size.set_model(list_store)
+            self.combo_block_size.set_active(0)  # Default to 4M
+        
+        # Disable Automount Checkbox
+        self.check_disable_automount = self.builder.get_object("OptionDisableAutomounter")
+        if self.check_disable_automount:
+            self.check_disable_automount.set_active(False)
+        
+        # Unmount and Remount Checkbox
+        self.check_unmount_remount = self.builder.get_object("OptionUnmountandRemount")
+        if self.check_unmount_remount:
+            self.check_unmount_remount.set_active(False)
+        
+        # Setup diskSelectCombo with liststore1
+        liststore1 = self.builder.get_object("liststore1")
+        if self.disk_combo and liststore1:
+            logger.info("Setting up diskSelectCombo")
+            liststore1.clear()
+            self.disk_combo.clear()
+            
+            # Add the 3 cell renderers
+            for col_index in range(3):
+                renderer = Gtk.CellRendererText()
+                self.disk_combo.pack_start(renderer, True)
+                self.disk_combo.add_attribute(renderer, "text", col_index)
+            
+            # Add header row
+            liststore1.append(["Select Disk", " File System Size", "Total Disk Size"])
+            logger.info("Added header row to diskSelectCombo model")
+        else:
+            logger.error("diskSelectCombo or liststore1 not found!")
+
+
+    def setup_page3_ui(self) -> None:
+        """Setup Page 3 (Clone) UI components."""
+        clonediskcombobox1 = self.builder.get_object("clonediskcombobox1")
+        clonediskcombobox2 = self.builder.get_object("clonediskcombobox2")
+        liststore1 = self.builder.get_object("liststore1")
+        
+        if clonediskcombobox1 and clonediskcombobox2 and liststore1:
+            # Clear any existing renderers
+            clonediskcombobox1.clear()
+            clonediskcombobox2.clear()
+            
+            # Set model for both
+            clonediskcombobox1.set_model(liststore1)
+            clonediskcombobox2.set_model(liststore1)
+            
+            # Add cell renderers - 3 columns just like page 1 and 2
+            for combo in [clonediskcombobox1, clonediskcombobox2]:
+                for col_index in range(3):
+                    renderer = Gtk.CellRendererText()
+                    renderer.props.alignment = Pango.Alignment.LEFT
+                    combo.pack_start(renderer, True)
+                    combo.add_attribute(renderer, "text", col_index)
+            
+            logger.info("Page 3 clone combos configured")
+        else:
+            logger.error("Clone comboboxes or liststore1 not found!")
+
+
+    def setup_page2_ui(self) -> None:
+        """Setup Page 2 (Verify) UI components."""
+        liststore_disks = self.builder.get_object("liststore1")
+        liststore_hash = self.builder.get_object("liststore3")
+        
+        # Setup verifydiskcombobox
+        if self.combo_box_verify_disk and liststore_disks:
+            self.combo_box_verify_disk.clear()
+            self.combo_box_verify_disk.set_model(liststore_disks)
+            
+            # Create and pack 3 renderers (disk name, filesystem size, total size)
+            for col_index in range(3):
+                renderer = Gtk.CellRendererText()
+                renderer.props.alignment = Pango.Alignment.LEFT
+                self.combo_box_verify_disk.pack_start(renderer, True)
+                self.combo_box_verify_disk.add_attribute(renderer, "text", col_index)
+            
+            self.combo_box_verify_disk.set_active(0)
+            logger.info("verifydiskcombobox configured")
+        
+        # Setup hash type combos (checksumCombobox1 & 2)
+        if liststore_hash:
+            for combo_id, combo_attr in [("checksumCombobox1", self.combo_box_verify_hash1),
+                                        ("checksumCombobox2", self.combo_box_verify_hash2)]:
+                if combo_attr:
+                    combo_attr.clear()
+                    combo_attr.set_model(liststore_hash)
+                    
+                    renderer_hash = Gtk.CellRendererText()
+                    renderer_hash.props.alignment = Pango.Alignment.LEFT
+                    combo_attr.pack_start(renderer_hash, True)
+                    combo_attr.add_attribute(renderer_hash, "text", 0)
+                    combo_attr.set_active(2)  # Default to SHA256
+                    
+                    logger.info(f"{combo_id} configured")
+
+
     def connect_signals(self) -> None:
-        """Manually connect all signals from Glade objects to handler methods."""
+        """Manually connect all signals from Glade objects to handler methods (ONE TIME ONLY)."""
         
         # PAGE 1: READ/WRITE Tab
         self.connect_button("readImageButton", self.on_read_clicked)
@@ -1297,7 +1259,8 @@ class DiskImagerApp:
         # Clone Dialog buttons
         self.connect_button("DialogButtonOK3", self.on_clone_dialog_ok)
         self.connect_button("DialogButtonCancel3", self.on_clone_dialog_cancel)
-
+        
+        logger.info("All signal connections completed")
     def connect_button(self, button_id: str, handler: Callable) -> None:
         """Helper to safely connect button signals."""
         button = self.builder.get_object(button_id)
