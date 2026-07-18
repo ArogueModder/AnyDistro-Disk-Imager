@@ -358,7 +358,7 @@
               <object class="GtkButton" id="readImageButton">
                 <property name="label" translatable="yes">Read Image</property>
                 <property name="width-request">100</property>
-                <property name="height-request">45</property>
+                <property name="height-request">35</property>
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
@@ -373,7 +373,7 @@
               <object class="GtkButton" id="writeImageButton">
                 <property name="label" translatable="yes">Write Image</property>
                 <property name="width-request">100</property>
-                <property name="height-request">45</property>
+                <property name="height-request">35</property>
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
@@ -388,7 +388,7 @@
               <object class="GtkButton" id="quitButton">
                 <property name="label" translatable="yes">Quit</property>
                 <property name="width-request">100</property>
-                <property name="height-request">45</property>
+                <property name="height-request">35</property>
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
@@ -401,8 +401,8 @@
             </child>
             <child>
               <object class="GtkButton" id="refreshDiskButton">
-                <property name="width-request">45</property>
-                <property name="height-request">45</property>
+                <property name="width-request">35</property>
+                <property name="height-request">35</property>
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
@@ -417,13 +417,13 @@
               </object>
               <packing>
                 <property name="x">340</property>
-                <property name="y">15</property>
+                <property name="y">20</property>
               </packing>
             </child>
             <child>
               <object class="GtkComboBox" id="diskSelectCombo">
                 <property name="width-request">305</property>
-                <property name="height-request">45</property>
+                <property name="height-request">35</property>
                 <property name="visible">True</property>
                 <property name="can-focus">False</property>
                 <property name="model">liststore1</property>
@@ -443,13 +443,13 @@
               </object>
               <packing>
                 <property name="x">15</property>
-                <property name="y">15</property>
+                <property name="y">20</property>
               </packing>
             </child>
             <child>
               <object class="GtkEntry" id="imageFileText">
                 <property name="width-request">305</property>
-                <property name="height-request">45</property>
+                <property name="height-request">35</property>
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <signal name="preedit-changed" handler="on_imageFileText_preedit_changed" swapped="no"/>
@@ -461,8 +461,8 @@
             </child>
             <child>
               <object class="GtkButton" id="openSaveImageButton">
-                <property name="width-request">45</property>
-                <property name="height-request">45</property>
+                <property name="width-request">35</property>
+                <property name="height-request">35</property>
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
@@ -503,6 +503,7 @@
               </object>
               <packing>
                 <property name="x">15</property>
+                <property name="y">3</property>
               </packing>
             </child>
             <child>
@@ -513,7 +514,7 @@
               </object>
               <packing>
                 <property name="x">15</property>
-                <property name="y">69</property>
+                <property name="y">68</property>
               </packing>
             </child>
             <child>
@@ -1017,7 +1018,7 @@ Remount disk</property>
                             <property name="label" translatable="yes">Source Disk</property>
                           </object>
                           <packing>
-                            <property name="x">5</property>
+                            <property name="x">-8</property>
                           </packing>
                         </child>
                         <child>
@@ -1048,7 +1049,7 @@ Remount disk</property>
                             <property name="label" translatable="yes">Target Disk</property>
                           </object>
                           <packing>
-                            <property name="x">5</property>
+                            <property name="x">-10</property>
                             <property name="y">60</property>
                           </packing>
                         </child>

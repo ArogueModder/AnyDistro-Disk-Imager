@@ -2,7 +2,7 @@
 """
 AnyDistro Disk Imager - A GTK3-based disk imaging utility for Linux.
 Features: Read/Write disk images, verify operations, clone disks.
-Refactored version with improved code structure and error handling.
+Created by ArogueModder.
 """
 import os
 import sys
@@ -15,6 +15,9 @@ logging.basicConfig(
     format='%(asctime)s - DiskImager - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+#==============================================
+#DISABLE ENABLE LOGGING HERE 
+logging.disable(logging.CRITICAL)
 
 def ensure_elevated_privileges():
     """Re-execute with pkexec if not running as root."""
@@ -1571,6 +1574,86 @@ class DiskImagerApp:
         if disks:
             self.disk_combo.set_active(0)
 
+    def validate_disk_space(image_path: str, destination_disk: str) -> tuple[bool, str]:
+        """
+        Validate that destination disk has enough free space for the image.
+        
+        Args:
+            image_path: Full path to the .img file
+            destination_disk: Path to destination disk (e.g., /dev/sdb)
+        
+        Returns:
+            (success: bool, message: str)
+        """
+        try:
+            # Get image file size
+            image_size = os.path.getsize(image_path)
+            
+            # Get destination disk free space
+            # For block devices, we need to check the mounted filesystem or parent filesystem
+            if destination_disk.startswith('/dev/'):
+                # Check if device is mounted
+                result = subprocess.run(
+                    ['findmnt', '-n', '-o', 'TARGET', destination_disk],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                
+                if result.returncode == 0:
+                    # Device is mounted, check that mount point's free space
+                    mount_point = result.stdout.strip()
+                    stat_result = os.statvfs(mount_point)
+                    free_space = stat_result.f_bavail * stat_result.f_frsize
+                else:
+                    # Device not mounted, we can't reliably check free space
+                    # This is actually a problem—we're about to write to an unmounted device
+                    # We should abort or warn strongly
+                    logging.warning(
+                        f"Destination {destination_disk} is not mounted. "
+                        "Cannot verify free space. Proceeding at user's risk."
+                    )
+                    return True, "Warning: Unable to verify free space (device not mounted)"
+            else:
+                # Regular file path
+                stat_result = os.statvfs(os.path.dirname(destination_disk) or '.')
+                free_space = stat_result.f_bavail * stat_result.f_frsize
+            
+            # Compare sizes with 5% safety margin
+            safety_margin = 0.05
+            required_space = image_size * (1 + safety_margin)
+            
+            if free_space < required_space:
+                shortage = required_space - free_space
+                return False, (
+                    f"Insufficient disk space. "
+                    f"Need {required_space / (1024**3):.2f} GB "
+                    f"(image: {image_size / (1024**3):.2f} GB + 5% margin), "
+                    f"but only {free_space / (1024**3):.2f} GB available. "
+                    f"Short by {shortage / (1024**3):.2f} GB."
+                )
+            
+            logging.info(
+                f"Disk space validated: {image_size / (1024**3):.2f} GB image, "
+                f"{free_space / (1024**3):.2f} GB free"
+            )
+            return True, "Disk space sufficient"
+            
+        except FileNotFoundError as e:
+            return False, f"Image file not found: {e}"
+        except subprocess.TimeoutExpired:
+            return False, "Timeout checking mount status"
+        except Exception as e:
+            logging.error(f"Error validating disk space: {e}")
+            return False, f"Error checking disk space: {e}"
+
+        
+    
+    
+    
+    
+    
+    
     def on_window_destroy(self, widget) -> None:
         """Handle window close."""
         Gtk.main_quit()
@@ -1636,7 +1719,7 @@ class DiskImagerApp:
     def on_browse_clicked(self, widget) -> None:
         """Handle browse for image file."""
         dialog = Gtk.FileChooserDialog(
-            "Select Image File",
+            "Create or Select Image File",
             self.window,
             Gtk.FileChooserAction.SAVE,
             ("Cancel", Gtk.ResponseType.CANCEL, "Open", Gtk.ResponseType.ACCEPT)
@@ -2105,6 +2188,28 @@ class DiskImagerApp:
             self._show_error("Please select a disk and specify an image file path")
             return
         
+        source_path = self.source_disk_combo.get_active_id()
+        image_path = self.image_file_entry.get_text()
+        destination_disk = self.destination_disk_combo.get_active_id()
+
+        # NEW: Critical safety check
+        devices_ok, devices_msg = self.validate_source_destination_differ(source_path, destination_disk)
+        if not devices_ok:
+            self.show_error_dialog("CRITICAL: Invalid Device Selection", devices_msg)
+            logging.critical(devices_msg)
+            return
+            
+        
+        
+        
+        
+        space_ok, space_msg = self.validate_disk_space(image_path, destination_disk)
+        if not space_ok:
+            self._show_error("Insufficient Disk Space", space_msg)
+            return
+
+
+
         # Show confirmation dialog
         write_dialog = self.builder.get_object("WriteDialogBox")
         write_label = self.builder.get_object("WriteDialogMessageLabel")
@@ -2138,6 +2243,56 @@ class DiskImagerApp:
     def on_general_warning_close(self, widget) -> None:
         """Handle OK button in general warning dialog."""
         self.builder.get_object("GeneralErrorWarning").hide()
+
+    def validate_source_destination_differ(
+        source_device: str,
+        destination_device: str
+    ) -> tuple[bool, str]:
+        """
+        Validate that source and destination are different devices.
+        Prevents catastrophic data loss from imaging a disk to itself.
+        
+        Args:
+            source_device: Source device path (e.g., /dev/sda)
+            destination_device: Destination device path (e.g., /dev/sdb)
+        
+        Returns:
+            (success: bool, message: str)
+        """
+        try:
+            # Get canonical device paths (resolve symlinks, remove partitions)
+            source_real = os.path.realpath(source_device)
+            dest_real = os.path.realpath(destination_device)
+            
+            # Remove partition numbers to get base disk
+            # /dev/sda1 -> /dev/sda, /dev/nvme0n1p1 -> /dev/nvme0n1
+            source_base = re.sub(r'p?\d+$', '', source_real)
+            dest_base = re.sub(r'p?\d+$', '', dest_real)
+            
+            if source_base == dest_base:
+                return False, (
+                    f"CRITICAL: Source and destination are the same device ({source_base}). "
+                    f"This would destroy your data. Operation aborted."
+                )
+            
+            # Also check if destination is a partition of the source
+            if dest_real.startswith(source_base + 'p') or dest_real.startswith(source_base.replace('nvme', 'nvme') + 'p'):
+                return False, (
+                    f"CRITICAL: Destination {destination_device} is a partition of source {source_device}. "
+                    f"This would destroy your data. Operation aborted."
+                )
+            
+            logging.info(f"Device validation OK: {source_base} -> {dest_base}")
+            return True, "Source and destination are different devices"
+            
+        except Exception as e:
+            logging.error(f"Error validating devices: {e}")
+            # Don't allow operation if we can't verify
+            return False, f"Error validating devices: {e}"
+
+
+
+
 
 
 
@@ -2771,8 +2926,108 @@ class DiskImagerApp:
             logger.error(f"Error finalizing clone: {e}")
             self._show_error(f"Error finalizing clone: {e}")
         
+    def validate_clone_source_destination_differ(
+        source_disk: str,
+        destination_disk: str
+    ) -> tuple[bool, str]:
+        """
+        Validate that source and destination disks are different.
+        CRITICAL: Prevents cloning a disk to itself, which would destroy data.
         
+        Args:
+            source_disk: Source disk path (e.g., /dev/sda)
+            destination_disk: Destination disk path (e.g., /dev/sdb)
         
+        Returns:
+            (success: bool, message: str)
+        """
+        try:
+            # Get canonical device paths (resolve symlinks)
+            source_real = os.path.realpath(source_disk)
+            dest_real = os.path.realpath(destination_disk)
+            
+            # Remove partition numbers to get base disk
+            # /dev/sda1 -> /dev/sda, /dev/nvme0n1p1 -> /dev/nvme0n1
+            source_base = re.sub(r'p?\d+$', '', source_real)
+            dest_base = re.sub(r'p?\d+$', '', dest_real)
+            
+            if source_base == dest_base:
+                return False, (
+                    f"CRITICAL: Source and destination are the same device ({source_base}). "
+                    f"Cloning to the same disk would destroy your data. Operation aborted."
+                )
+            
+            # Also check if destination is a partition of the source
+            if dest_real.startswith(source_base + 'p') or dest_real.startswith(source_base.replace('nvme', 'nvme') + 'p'):
+                return False, (
+                    f"CRITICAL: Destination {destination_disk} is a partition of source {source_disk}. "
+                    f"This would destroy your data. Operation aborted."
+                )
+            
+            # Check if source is a partition of the destination (unusual but risky)
+            if source_real.startswith(dest_base + 'p') or source_real.startswith(dest_base.replace('nvme', 'nvme') + 'p'):
+                return False, (
+                    f"WARNING: Source {source_disk} is a partition of destination {destination_disk}. "
+                    f"This configuration is risky and not recommended."
+                )
+            
+            logging.info(f"Clone device validation OK: {source_base} -> {dest_base}")
+            return True, "Source and destination are different devices"
+            
+        except Exception as e:
+            logging.error(f"Error validating clone devices: {e}")
+            return False, f"Error validating devices: {e}"
+    
+
+    def validate_destination_disk_size(
+        self,
+        source_disk: str,
+        destination_disk: str
+    ) -> tuple[bool, str]:
+        """
+        Validate that destination disk is large enough to hold source disk.
+        For cloning, destination must be >= source size.
+        """
+        try:
+            source_size = DiskManager.get_disk_size_bytes(source_disk)
+            dest_size = DiskManager.get_disk_size_bytes(destination_disk)
+            
+            if source_size is None:
+                return False, f"Could not determine size of source disk {source_disk}"
+            
+            if dest_size is None:
+                return False, f"Could not determine size of destination disk {destination_disk}"
+            
+            margin = 0.01
+            required_size = source_size * (1 + margin)
+            
+            if dest_size < required_size:
+                shortage = required_size - dest_size
+                return False, (
+                    f"Destination disk too small. "
+                    f"Source: {source_size / (1024**3):.2f} GB, "
+                    f"Destination: {dest_size / (1024**3):.2f} GB. "
+                    f"Short by {shortage / (1024**3):.2f} GB. "
+                    f"Destination must be at least as large as source."
+                )
+            
+            logging.info(
+                f"Destination disk size validated: "
+                f"source {source_size / (1024**3):.2f} GB, "
+                f"destination {dest_size / (1024**3):.2f} GB"
+            )
+            return True, "Destination disk is large enough"
+            
+        except Exception as e:
+            logging.error(f"Error validating destination disk size: {e}")
+            return False, f"Error checking disk sizes: {e}"
+
+
+    
+
+
+
+
         
         
     
@@ -2897,6 +3152,15 @@ class DiskImagerApp:
         if self.state.clone_source == self.state.clone_target:
             self.on_generalWarningError("Source and target disks cannot be the same")
             return
+        
+        size_ok, size_msg = self.validate_destination_disk_size(self.state.clone_source, self.state.clone_target)
+        if not size_ok:
+            self._show_error("Destination Disk Too Small")
+            logging.error(size_msg)
+            return
+            
+        
+        
         
         # Show confirmation dialog
         clone_dialog = self.builder.get_object("CloneDiskDialogBox")
@@ -3359,6 +3623,7 @@ class DiskImagerApp:
             buttons=Gtk.ButtonsType.OK,
             message_format=message
         )
+        dialog.set_title("Error")
         dialog.run()
         dialog.destroy()
         logger.error(f"Error: {message}")
