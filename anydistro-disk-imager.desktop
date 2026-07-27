@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=AnyDistro Disk Imager
+Comment=Read/Write/Verify/Clone Disk Images
+Exec=anydistro-disk-imager
+Icon=DiskImager
+Categories=Utility;System;
+Terminal=false
