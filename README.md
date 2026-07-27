@@ -19,7 +19,7 @@ A lightweight, cross-platform disk imaging tool for Linux distributions.
 
 The easiest way to run AnyDistro Disk Imager is via AppImage—no installation required:
 
-wget https://github.com/YOUR_USERNAME/AnyDistro-Disk-Imager/releases/download/v1.0.0/AnyDistro_Disk_Imager-x86_64.AppImage
+wget AnyDistro_Disk_Imager-x86_64.AppImage
 chmod +x AnyDistro_Disk_Imager-x86_64.AppImage
 ./AnyDistro_Disk_Imager-x86_64.AppImage
 
