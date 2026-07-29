@@ -3,6 +3,6 @@ Type=Application
 Name=AnyDistro Disk Imager
 Comment=Read/Write/Verify/Clone Disk Images
 Exec=anydistro-disk-imager
-Icon=DiskImager
+Icon=anydistro-disk-imager
 Categories=Utility;System;
 Terminal=false
