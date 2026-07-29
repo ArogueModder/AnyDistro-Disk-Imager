@@ -362,11 +362,12 @@
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
+                <property name="tooltip-text" translatable="yes">Read an image from the selected disk to file</property>
                 <signal name="clicked" handler="on_ReadButtonClicked" swapped="no"/>
               </object>
               <packing>
                 <property name="x">15</property>
-                <property name="y">265</property>
+                <property name="y">300</property>
               </packing>
             </child>
             <child>
@@ -377,11 +378,12 @@
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
+                <property name="tooltip-text" translatable="yes">Write the selected image to disk</property>
                 <signal name="clicked" handler="on_WriteButtonClickedBox" swapped="no"/>
               </object>
               <packing>
                 <property name="x">150</property>
-                <property name="y">265</property>
+                <property name="y">300</property>
               </packing>
             </child>
             <child>
@@ -392,11 +394,12 @@
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
+                <property name="tooltip-text" translatable="yes">Exit</property>
                 <signal name="clicked" handler="on_quitButton_clicked" swapped="no"/>
               </object>
               <packing>
                 <property name="x">285</property>
-                <property name="y">265</property>
+                <property name="y">300</property>
               </packing>
             </child>
             <child>
@@ -406,6 +409,7 @@
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
+                <property name="tooltip-text" translatable="yes">Refresh the Selected Disk</property>
                 <signal name="clicked" handler="on_refreshDiskButton_clicked" swapped="no"/>
                 <child>
                   <object class="GtkImage" id="refresh">
@@ -426,6 +430,7 @@
                 <property name="height-request">35</property>
                 <property name="visible">True</property>
                 <property name="can-focus">False</property>
+                <property name="tooltip-text" translatable="yes">Select a disk to Read/Write</property>
                 <property name="model">liststore1</property>
                 <property name="row-span-column">0</property>
                 <property name="column-span-column">0</property>
@@ -452,6 +457,7 @@
                 <property name="height-request">35</property>
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
+                <property name="tooltip-text" translatable="yes">Select or Create a disk image to Read/Write</property>
                 <signal name="preedit-changed" handler="on_imageFileText_preedit_changed" swapped="no"/>
               </object>
               <packing>
@@ -466,6 +472,7 @@
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
+                <property name="tooltip-text" translatable="yes">Select or Create a disk image to Read/Write</property>
                 <signal name="activate" handler="on_openSaveImageButton_activate" swapped="no"/>
                 <child>
                   <object class="GtkImage">
@@ -492,7 +499,7 @@
               </object>
               <packing>
                 <property name="x">15</property>
-                <property name="y">215</property>
+                <property name="y">245</property>
               </packing>
             </child>
             <child>
@@ -503,7 +510,6 @@
               </object>
               <packing>
                 <property name="x">15</property>
-                <property name="y">3</property>
               </packing>
             </child>
             <child>
@@ -514,7 +520,7 @@
               </object>
               <packing>
                 <property name="x">15</property>
-                <property name="y">68</property>
+                <property name="y">65</property>
               </packing>
             </child>
             <child>
@@ -525,7 +531,7 @@
               </object>
               <packing>
                 <property name="x">190</property>
-                <property name="y">245</property>
+                <property name="y">280</property>
               </packing>
             </child>
             <child>
@@ -539,6 +545,7 @@
                   <object class="GtkAlignment">
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
+                    <property name="bottom-padding">10</property>
                     <property name="left-padding">12</property>
                     <child>
                       <object class="GtkFixed">
@@ -553,6 +560,7 @@ Automount</property>
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
                             <property name="receives-default">False</property>
+                            <property name="tooltip-text" translatable="yes">Try to disable automount</property>
                             <property name="draw-indicator">True</property>
                             <signal name="toggled" handler="on_toggleDisableAutomount_toggled" swapped="no"/>
                           </object>
@@ -565,6 +573,7 @@ Automount</property>
                             <property name="width-request">90</property>
                             <property name="visible">True</property>
                             <property name="can-focus">False</property>
+                            <property name="tooltip-text" translatable="yes">Select a blocksize to Read/Write data </property>
                             <property name="model">liststore2</property>
                             <property name="row-span-column">0</property>
                             <property name="column-span-column">0</property>
@@ -586,7 +595,7 @@ Automount</property>
                           </object>
                           <packing>
                             <property name="x">255</property>
-                            <property name="y">17</property>
+                            <property name="y">30</property>
                           </packing>
                         </child>
                         <child>
@@ -598,6 +607,7 @@ Automount</property>
                           </object>
                           <packing>
                             <property name="x">240</property>
+                            <property name="y">5</property>
                           </packing>
                         </child>
                         <child>
@@ -608,6 +618,7 @@ Remount disk</property>
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
                             <property name="receives-default">False</property>
+                            <property name="tooltip-text" translatable="yes">Try to unmount the disk for operations and remount when complete</property>
                             <property name="draw-indicator">True</property>
                             <signal name="toggled" handler="on_toggleUnmountandRemount_toggled" swapped="no"/>
                           </object>
@@ -664,6 +675,7 @@ Remount disk</property>
                     <property name="height-request">95</property>
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
+                    <property name="bottom-padding">10</property>
                     <property name="left-padding">12</property>
                     <child>
                       <object class="GtkFixed">
@@ -675,6 +687,7 @@ Remount disk</property>
                             <property name="height-request">35</property>
                             <property name="visible">True</property>
                             <property name="can-focus">False</property>
+                            <property name="tooltip-text" translatable="yes">Select a disk to verify</property>
                             <signal name="changed" handler="on_verifydiskcombobox_changed" swapped="no"/>
                             <child>
                               <object class="GtkCellRendererText" id="SelectDiskRenderer2"/>
@@ -696,6 +709,7 @@ Remount disk</property>
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
                             <property name="receives-default">True</property>
+                            <property name="tooltip-text" translatable="yes">Refresh selected disk</property>
                             <signal name="clicked" handler="on_refreshDiskButton1_clicked" swapped="no"/>
                             <child>
                               <object class="GtkImage" id="refresh1">
@@ -716,6 +730,7 @@ Remount disk</property>
                             <property name="height-request">35</property>
                             <property name="visible">True</property>
                             <property name="can-focus">False</property>
+                            <property name="tooltip-text" translatable="yes">Select a hash type to generate</property>
                             <property name="model">liststore3</property>
                             <signal name="changed" handler="on_checksumCombobox1_changed" swapped="no"/>
                             <child>
@@ -728,7 +743,7 @@ Remount disk</property>
                           </object>
                           <packing>
                             <property name="x">5</property>
-                            <property name="y">55</property>
+                            <property name="y">65</property>
                           </packing>
                         </child>
                         <child>
@@ -739,11 +754,12 @@ Remount disk</property>
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
                             <property name="receives-default">True</property>
+                            <property name="tooltip-text" translatable="yes">Generate selected hash</property>
                             <signal name="clicked" handler="on_generateChecksumDiskButton_clicked" swapped="no"/>
                           </object>
                           <packing>
                             <property name="x">245</property>
-                            <property name="y">55</property>
+                            <property name="y">65</property>
                           </packing>
                         </child>
                         <child>
@@ -755,7 +771,7 @@ Remount disk</property>
                           </object>
                           <packing>
                             <property name="x">5</property>
-                            <property name="y">40</property>
+                            <property name="y">45</property>
                           </packing>
                         </child>
                       </object>
@@ -781,6 +797,7 @@ Remount disk</property>
                 <property name="visible">True</property>
                 <property name="can-focus">False</property>
                 <property name="label-xalign">0</property>
+                <property name="label-yalign">0.5500000119209289</property>
                 <property name="shadow-type">etched-out</property>
                 <child>
                   <object class="GtkAlignment">
@@ -788,6 +805,7 @@ Remount disk</property>
                     <property name="height-request">95</property>
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
+                    <property name="bottom-padding">12</property>
                     <property name="left-padding">12</property>
                     <child>
                       <object class="GtkFixed">
@@ -800,6 +818,7 @@ Remount disk</property>
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
                             <property name="receives-default">True</property>
+                            <property name="tooltip-text" translatable="yes">Open an image file to verify</property>
                             <signal name="clicked" handler="on_openimageButton2_clicked" swapped="no"/>
                             <child>
                               <object class="GtkImage" id="opensaveimage2">
@@ -820,6 +839,7 @@ Remount disk</property>
                             <property name="height-request">35</property>
                             <property name="visible">True</property>
                             <property name="can-focus">False</property>
+                            <property name="tooltip-text" translatable="yes">Select a hash type to verify</property>
                             <signal name="changed" handler="on_checksumCombobox2_changed" swapped="no"/>
                             <child>
                               <object class="GtkCellRendererText" id="SelectHashRenderer1"/>
@@ -831,7 +851,7 @@ Remount disk</property>
                           </object>
                           <packing>
                             <property name="x">5</property>
-                            <property name="y">55</property>
+                            <property name="y">65</property>
                           </packing>
                         </child>
                         <child>
@@ -842,11 +862,12 @@ Remount disk</property>
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
                             <property name="receives-default">True</property>
+                            <property name="tooltip-text" translatable="yes">Generate selected hash</property>
                             <signal name="clicked" handler="on_generateChecksumImageButton_clicked" swapped="no"/>
                           </object>
                           <packing>
                             <property name="x">245</property>
-                            <property name="y">55</property>
+                            <property name="y">65</property>
                           </packing>
                         </child>
                         <child>
@@ -858,7 +879,7 @@ Remount disk</property>
                           </object>
                           <packing>
                             <property name="x">5</property>
-                            <property name="y">40</property>
+                            <property name="y">45</property>
                           </packing>
                         </child>
                         <child>
@@ -867,6 +888,7 @@ Remount disk</property>
                             <property name="height-request">35</property>
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
+                            <property name="tooltip-text" translatable="yes">Select an image to verify</property>
                             <signal name="preedit-changed" handler="on_imageverifyentry_preedit_changed" swapped="no"/>
                           </object>
                           <packing>
@@ -888,7 +910,7 @@ Remount disk</property>
               </object>
               <packing>
                 <property name="x">5</property>
-                <property name="y">115</property>
+                <property name="y">130</property>
               </packing>
             </child>
             <child>
@@ -897,11 +919,13 @@ Remount disk</property>
                 <property name="height-request">35</property>
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
+                <property name="tooltip-text" translatable="yes">Generated hashes will appear here</property>
+                <property name="margin-bottom">10</property>
                 <property name="editable">False</property>
               </object>
               <packing>
                 <property name="x">5</property>
-                <property name="y">270</property>
+                <property name="y">310</property>
               </packing>
             </child>
             <child>
@@ -912,7 +936,7 @@ Remount disk</property>
                 <property name="label" translatable="yes">Output:</property>
               </object>
               <packing>
-                <property name="y">255</property>
+                <property name="y">292</property>
               </packing>
             </child>
             <child>
@@ -926,7 +950,7 @@ Remount disk</property>
               </object>
               <packing>
                 <property name="x">5</property>
-                <property name="y">230</property>
+                <property name="y">265</property>
               </packing>
             </child>
           </object>
@@ -975,6 +999,7 @@ Remount disk</property>
                             <property name="height-request">35</property>
                             <property name="visible">True</property>
                             <property name="can-focus">False</property>
+                            <property name="tooltip-text" translatable="yes">The disk source that will be cloned to the target</property>
                             <signal name="changed" handler="on_clonediskcombobox1_changed" swapped="no"/>
                             <child>
                               <object class="GtkCellRendererText" id="SelectDiskRenderer1"/>
@@ -996,6 +1021,7 @@ Remount disk</property>
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
                             <property name="receives-default">True</property>
+                            <property name="tooltip-text" translatable="yes">Refresh the Source/Target disks</property>
                             <signal name="clicked" handler="on_refreshDiskButton2_clicked" swapped="no"/>
                             <child>
                               <object class="GtkImage" id="refresh2">
@@ -1018,7 +1044,8 @@ Remount disk</property>
                             <property name="label" translatable="yes">Source Disk</property>
                           </object>
                           <packing>
-                            <property name="x">-8</property>
+                            <property name="x">-10</property>
+                            <property name="y">-3</property>
                           </packing>
                         </child>
                         <child>
@@ -1027,6 +1054,7 @@ Remount disk</property>
                             <property name="height-request">35</property>
                             <property name="visible">True</property>
                             <property name="can-focus">False</property>
+                            <property name="tooltip-text" translatable="yes">The disk target that will be written from the source</property>
                             <signal name="changed" handler="on_clonediskcombobox2_changed" swapped="no"/>
                             <child>
                               <object class="GtkCellRendererText" id="SelectDiskRenderer3"/>
@@ -1050,7 +1078,7 @@ Remount disk</property>
                           </object>
                           <packing>
                             <property name="x">-10</property>
-                            <property name="y">60</property>
+                            <property name="y">55</property>
                           </packing>
                         </child>
                       </object>
@@ -1080,6 +1108,7 @@ Remount disk</property>
                   <object class="GtkAlignment">
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
+                    <property name="bottom-padding">10</property>
                     <property name="left-padding">12</property>
                     <child>
                       <object class="GtkFixed">
@@ -1094,6 +1123,7 @@ Automount</property>
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
                             <property name="receives-default">False</property>
+                            <property name="tooltip-text" translatable="yes">Try to disable automount</property>
                             <property name="draw-indicator">True</property>
                             <signal name="toggled" handler="on_toggleDisableAutomount1_toggled" swapped="no"/>
                           </object>
@@ -1106,6 +1136,7 @@ Automount</property>
                             <property name="width-request">90</property>
                             <property name="visible">True</property>
                             <property name="can-focus">False</property>
+                            <property name="tooltip-text" translatable="yes">The Selected blocksize to Read/Write</property>
                             <property name="model">liststore2</property>
                             <property name="row-span-column">0</property>
                             <property name="column-span-column">0</property>
@@ -1126,7 +1157,7 @@ Automount</property>
                           </object>
                           <packing>
                             <property name="x">255</property>
-                            <property name="y">17</property>
+                            <property name="y">30</property>
                           </packing>
                         </child>
                         <child>
@@ -1138,6 +1169,7 @@ Automount</property>
                           </object>
                           <packing>
                             <property name="x">240</property>
+                            <property name="y">5</property>
                           </packing>
                         </child>
                         <child>
@@ -1148,6 +1180,7 @@ Remount disk</property>
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
                             <property name="receives-default">False</property>
+                            <property name="tooltip-text" translatable="yes">Try to unmount and remount disks</property>
                             <property name="draw-indicator">True</property>
                             <signal name="toggled" handler="on_toggleUnmountandRemount1_toggled" swapped="no"/>
                           </object>
@@ -1183,7 +1216,7 @@ Remount disk</property>
               </object>
               <packing>
                 <property name="x">10</property>
-                <property name="y">230</property>
+                <property name="y">255</property>
               </packing>
             </child>
             <child>
@@ -1194,11 +1227,12 @@ Remount disk</property>
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
+                <property name="tooltip-text" translatable="yes">Clone the Source disk to the Target disk</property>
                 <signal name="clicked" handler="CloneDiskDialogBoxstart" swapped="no"/>
               </object>
               <packing>
                 <property name="x">10</property>
-                <property name="y">280</property>
+                <property name="y">315</property>
               </packing>
             </child>
             <child>
@@ -1208,11 +1242,12 @@ Remount disk</property>
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>
+                <property name="tooltip-text" translatable="yes">Exit</property>
                 <signal name="clicked" handler="on_QuitButton1_clicked" swapped="no"/>
               </object>
               <packing>
                 <property name="x">285</property>
-                <property name="y">280</property>
+                <property name="y">315</property>
               </packing>
             </child>
             <child>
@@ -1223,7 +1258,7 @@ Remount disk</property>
               </object>
               <packing>
                 <property name="x">180</property>
-                <property name="y">260</property>
+                <property name="y">300</property>
               </packing>
             </child>
           </object>
