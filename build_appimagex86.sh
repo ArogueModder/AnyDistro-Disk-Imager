@@ -80,11 +80,6 @@ echo "=== Step 3: Installing application and dependencies ==="
 
 # Find Python executable from pyenv
 PYTHON_EXEC="$HOME/.pyenv/versions/${PYTHON_VERSION}.*/bin/python${PYTHON_VERSION}"
-# Activate pyenv environment
-export PATH="$HOME/.pyenv/versions/$(ls -d $HOME/.pyenv/versions/${PYTHON_VERSION}* | tail -1)/bin:$PATH"
-export PYENV_VERSION="${PYTHON_VERSION}"
-
-
 PYTHON_REAL=$(eval echo $PYTHON_EXEC | head -1)
 
 if [ ! -f "$PYTHON_REAL" ]; then
@@ -110,13 +105,13 @@ SITE_PACKAGES="$APPDIR/usr/lib/python${PYTHON_VERSION}/site-packages"
 mkdir -p "$SITE_PACKAGES"
 
 echo "Installing application into AppDir..."
-"$PYTHON_REAL" -m pip install \
+pip install \
     --target "$SITE_PACKAGES" \
     --no-deps \
     "$SCRIPT_DIR"
 
 echo "Installing dependencies into AppDir..."
-"$PYTHON_REAL" -m pip install \
+pip install \
     --target "$SITE_PACKAGES" \
     'PyGObject>=3.42.0' \
     'playsound>=1.2.2'
@@ -134,7 +129,6 @@ cat > "$APPDIR/AppRun" << 'EOF'
 set -e
 
 APPDIR="$(dirname "$(readlink -f "${0}")")"
-PYTHON_VERSION="3.11"
 
 # Create temp directory and copy Python + libs
 TMPDIR=$(mktemp -d)
@@ -145,11 +139,9 @@ chmod +x "$TMPDIR/usr/bin/python"
 
 # Run from temp
 export PYTHONHOME="$TMPDIR/usr"
-export PYTHONPATH="$TMPDIR/usr/lib/python${PYTHON_VERSION}/site-packages"
-export LD_LIBRARY_PATH="$TMPDIR/usr/lib:$LD_LIBRARY_PATH"
+export PYTHONPATH="$TMPDIR/usr/lib/python3.11/site-packages"
 exec "$TMPDIR/usr/bin/python" -m anydistro_disk_imager.__main__ "$@"
 EOF
-
 
 chmod +x "$APPDIR/AppRun"
 
