@@ -4,6 +4,7 @@ A lightweight, cross-platform disk imaging tool for Linux distributions.
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue)](https://www.python.org/downloads/)
+[![Release](https://img.shields.io/badge/release-v0.1.0-blue)](https://github.com/ArogueModder/AnyDistro-Disk-Imager/releases/tag/0.1.0)
 
 ## Features
 
@@ -13,35 +14,97 @@ A lightweight, cross-platform disk imaging tool for Linux distributions.
 - **Progress Tracking** – Real-time feedback during imaging operations
 - **Portable AppImage** – Run directly without installation using the AppImage format
 
+## Dependencies
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| PyGObject | ≥3.42.0 | GTK 3 bindings for the GUI |
+| playsound | ≥1.2.2 | Audio feedback notifications |
+| GTK | 3.0+ | Widget toolkit for the interface |
+
+
+### Build Requirements
+
+- Python 3.8+
+- linuxdeploy and linuxdeploy-plugin-appimage
+- All runtime dependencies (see `requirements.txt`)
+
 ## Installation
 
 ### Option 1: AppImage (Recommended)
 
 The easiest way to run AnyDistro Disk Imager is via AppImage—no installation required:
 
-wget AnyDistro_Disk_Imager-x86_64.AppImage
+# For x86_64
+wget https://github.com/ArogueModder/AnyDistro-Disk-Imager/releases/download/0.1.0/AnyDistro_Disk_Imager-x86_64.AppImage
+
 chmod +x AnyDistro_Disk_Imager-x86_64.AppImage
+
 ./AnyDistro_Disk_Imager-x86_64.AppImage
+
+# For aarch64 (ARM64)
+wget https://github.com/ArogueModder/AnyDistro-Disk-Imager/releases/download/0.1.0/AnyDistro_Disk_Imager-aarch64.AppImage
+
+chmod +x AnyDistro_Disk_Imager-aarch64.AppImage
+
+./AnyDistro_Disk_Imager-aarch64.AppImage
 
 ### Option 2: From Source
 
 #### Requirements
 
-- **Python 3.8 or higher**
-- **pip** (Python package manager)
-- **GTK 3.0+** (for GUI components)
+Before building, ensure you have the following packages installed:
 
-#### Installation Steps
+**On Ubuntu/Debian:**
 
-git clone https://github.com/ArogueModder/AnyDistro-Disk-Imager.git
-cd AnyDistro-Disk-Imager
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-pip install -e .
-anydistro-disk-imager
+    sudo apt update
+    sudo apt install -y \
+    build-essential \
+    ninja-build \
+    pkg-config \
+    python3.11 \
+    python3.11-dev \
+    libgirepository2.0-dev \
+    libglib2.0-dev \
+    libgtk-3-dev \
+    gobject-introspection \
+    git
 
-## Usage
+**On Fedora/RHEL:**
+
+    sudo dnf groupinstall -y "Development Tools"
+    sudo dnf install -y \
+    ninja-build \
+    pkg-config \
+    python3-devel \
+    gobject-introspection-devel \
+    glib2-devel \
+    gtk3-devel \
+    git
+    
+**On Arch Linux:**
+
+    sudo pacman -S --noconfirm \
+    base-devel \
+    ninja \
+    pkg-config \
+    python \
+    gobject-introspection \
+    glib2 \
+    gtk3 \
+    git
+    
+#### Build Steps
+
+    git clone https://github.com/ArogueModder/AnyDistro-Disk-Imager.git
+    cd AnyDistro-Disk-Imager
+    pip install --upgrade pip
+    pip install -r requirements.txt
+    run build_appimagex86.sh or build_appimageaarch64.sh
+
+**Or run directly without installation:**
+
+    python3 anydistro_disk_imager/main.py
 
 ### Graphical Interface
 
@@ -54,36 +117,12 @@ After launching the application, the GUI will guide you through:
 5. **Read** - Begin reading the disk image to file
 6. **Clone** - Clone a disk to a disk of equal or greater size
 
-
-## Dependencies
-
-| Package | Version | Purpose |
-|---------|---------|---------|
-| PyGObject | ≥3.42.0 | GTK 3 bindings for the GUI |
-| playsound | ≥1.2.2 | Audio feedback notifications |
-| GTK | 3.0+ | Widget toolkit for the interface |
-
-## Building an AppImage
-
-To build your own AppImage for distribution:
-
-pip install -r requirements.txt
-./build-appimage.sh
-
-The resulting AppImage will be saved to `dist/AnyDistro_Disk_Imager-x86_64.AppImage`.
-
-### Build Requirements
-
-- Python 3.8+
-- linuxdeploy and linuxdeploy-plugin-appimage
-- All runtime dependencies (see `requirements.txt`)
-
 ## System Requirements
 
 - **OS:** Linux (any distribution)
-- **Architecture:** x86_64 (or native for your platform)
-- **RAM:** Minimal (50 MB for operation)
-- **Storage:** ~50 MB for installation
+- **Architecture:** x86_64 or aarch64 (or native for your platform)
+- **RAM:** Minimal (75 MB for operation)
+- **Storage:** ~75 MB for installation
 
 ## Troubleshooting
 
@@ -104,14 +143,18 @@ pip install -r requirements.txt
 
 Verify GTK 3 is installed on your system:
 
-# Debian/Ubuntu
+#### Debian/Ubuntu
 sudo apt install libgtk-3-0 gir1.2-gtk-3.0
 
-# Fedora/RHEL
+#### Fedora/RHEL
 sudo dnf install gtk3
 
-# Arch
+#### Arch
 sudo pacman -S gtk3
+
+### GUI is Crowded on Raspberry Pi
+
+Known issue.  The program should still function normally.
 
 ## License
 
@@ -119,7 +162,7 @@ This project is licensed under the GNU General Public License v3.0 — see the L
 
 ## Changelog
 
-### Version 1.0.0
+### Version 0.1.0
 - Initial stable release
 - AppImage packaging support
 - Cross-distribution compatibility
