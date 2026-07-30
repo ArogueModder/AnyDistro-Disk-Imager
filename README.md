@@ -5,7 +5,7 @@ A lightweight, cross-platform disk imaging tool for Linux distributions.
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue)](https://www.python.org/downloads/)
-[![Release](https://img.shields.io/badge/release-v0.1.0-blue)](https://github.com/ArogueModder/AnyDistro-Disk-Imager/releases/tag/0.1.0)
+[![Release](https://img.shields.io/badge/release-v0.1.1-blue)](https://github.com/ArogueModder/AnyDistro-Disk-Imager/releases/tag/0.1.1)
 
 ## Features
 
@@ -153,15 +153,14 @@ sudo dnf install gtk3
 #### Arch
 sudo pacman -S gtk3
 
-### GUI is Crowded on Raspberry Pi
-
-Known issue.  The program should still function normally.
-
 ## License
 
 This project is licensed under the GNU General Public License v3.0 — see the LICENSE file for details.
 
 ## Changelog
+
+### Version 0.1.1
+- Fixed GTK DPI scaling issues
 
 ### Version 0.1.0
 - Initial stable release
