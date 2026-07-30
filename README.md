@@ -1,3 +1,4 @@
+![AnyDistro Disk Imager Logo](smalllogo.png)
 # AnyDistro Disk Imager
 
 A lightweight, cross-platform disk imaging tool for Linux distributions.
