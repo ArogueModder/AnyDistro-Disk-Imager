@@ -1239,6 +1239,7 @@ Remount disk</property>
               <object class="GtkButton" id="QuitButton1">
                 <property name="label" translatable="yes">Quit</property>
                 <property name="width-request">100</property>
+                <property name="height-request">35</property>
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>

@@ -1022,6 +1022,30 @@ class DiskImagerApp:
         glade_path = Path(__file__).parent / GLADE_FILE
         self.builder.add_from_file(str(glade_path))
         
+        #Scaling Adjustments
+        os.environ['GDK_SCALE'] = '1'  # Disable forced scaling
+        os.environ['GDK_DPI_SCALE'] = '1'
+
+        #font control
+        css_provider = Gtk.CssProvider()
+        css_provider.load_from_data(b"""
+            * {
+                font-size: 12px;
+                font-family: Sans;
+            }
+            button {
+                padding: 1px 1px;
+                min-height: 15px;
+            }
+        """)
+
+        context = Gtk.StyleContext()
+        context.add_provider_for_screen(
+            Gdk.Screen.get_default(),
+            css_provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+
         # Get main window
         self.window = self.builder.get_object("MyMainWindow")
         if not self.window:
@@ -3653,12 +3677,8 @@ def main():
     app.run()
 
 
-
-
 if __name__ == "__main__":
     #ensure_elevated_privileges()
     #app = DiskImagerApp()
     #app.run()
     main()
-
-
