@@ -37,14 +37,14 @@ A lightweight, cross-platform disk imaging tool for Linux distributions.
 The easiest way to run AnyDistro Disk Imager is via AppImage—no installation required:
 
 # For x86_64
-wget https://github.com/ArogueModder/AnyDistro-Disk-Imager/releases/download/0.1.0/AnyDistro_Disk_Imager-x86_64.AppImage
+wget https://github.com/ArogueModder/AnyDistro-Disk-Imager/releases/download/0.1.1/AnyDistro_Disk_Imager-x86_64.AppImage
 
 chmod +x AnyDistro_Disk_Imager-x86_64.AppImage
 
 ./AnyDistro_Disk_Imager-x86_64.AppImage
 
 # For aarch64 (ARM64)
-wget https://github.com/ArogueModder/AnyDistro-Disk-Imager/releases/download/0.1.0/AnyDistro_Disk_Imager-aarch64.AppImage
+wget https://github.com/ArogueModder/AnyDistro-Disk-Imager/releases/download/0.1.1/AnyDistro_Disk_Imager-aarch64.AppImage
 
 chmod +x AnyDistro_Disk_Imager-aarch64.AppImage
 
