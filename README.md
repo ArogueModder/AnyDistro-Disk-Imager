@@ -30,27 +30,39 @@ A lightweight, cross-platform disk imaging tool for Linux distributions.
 - linuxdeploy and linuxdeploy-plugin-appimage
 - All runtime dependencies (see `requirements.txt`)
 
-## Installation
+# Installation
 
-### Option 1: AppImage (Recommended)
+## Option 1: .deb/.rpm Package (Recommended)
+
+The best way to install and run AnyDistro Disk Imager is via .deb/.rpm packages:
+
+### For Debian, Ubuntu, Linux Mint, and MX Linux
+
+https://github.com/ArogueModder/AnyDistro-Disk-Imager/releases/download/0.1.1/anydistro-disk-imager_0.1.1_all.deb
+
+### For Fedora, CentOS, AlmaLinux, and openSUSE
+
+https://github.com/ArogueModder/AnyDistro-Disk-Imager/releases/download/0.1.1/anydistro-disk-imager-0.1.1_all.rpm
+
+## Option 2: AppImage
 
 The easiest way to run AnyDistro Disk Imager is via AppImage—no installation required:
 
-# For x86_64
+### For x86_64
 wget https://github.com/ArogueModder/AnyDistro-Disk-Imager/releases/download/0.1.1/AnyDistro_Disk_Imager-x86_64.AppImage
 
 chmod +x AnyDistro_Disk_Imager-x86_64.AppImage
 
 ./AnyDistro_Disk_Imager-x86_64.AppImage
 
-# For aarch64 (ARM64)
+### For aarch64 (ARM64)
 wget https://github.com/ArogueModder/AnyDistro-Disk-Imager/releases/download/0.1.1/AnyDistro_Disk_Imager-aarch64.AppImage
 
 chmod +x AnyDistro_Disk_Imager-aarch64.AppImage
 
 ./AnyDistro_Disk_Imager-aarch64.AppImage
 
-### Option 2: From Source
+## Option 3: From Source
 
 #### Requirements
 
