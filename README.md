@@ -1,3 +1,5 @@
+<div align="center">
+
 ![AnyDistro Disk Imager Logo](smalllogo.png)
 # AnyDistro Disk Imager
 
@@ -6,6 +8,8 @@ A lightweight, cross-platform disk imaging tool for Linux distributions.
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue)](https://www.python.org/downloads/)
 [![Release](https://img.shields.io/badge/release-v0.1.1-blue)](https://github.com/ArogueModder/AnyDistro-Disk-Imager/releases/tag/0.1.1)
+
+<div align="left">
 
 ## Features
 
